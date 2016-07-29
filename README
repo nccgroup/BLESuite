@@ -31,9 +31,10 @@ Note to the reader:
 The following are requirements in order to use BLESuite:
     * Bluez bluetooth stack
     * libbluetooth-dev and libpython-dev
-    * Python library pygattlib. I am currently maintaining my own fork of pygattlib
-    found at https://bitbucket.org/ttrabun/pygattlib-withhandles until the owner
-    of pygattlib adds a fix for returning handles when reading UUIDs.
+    * Python library PyGattlib (https://bitbucket.org/OscarAcena/pygattlib)
+The version included in this project is a fork of PyGattlib
+that contains additional fixes that have not yet been implemented
+in the mainline of PyGattlib.
 
 To install Python library:
     Open the PyGattlib directory and run sudo python setup.py install
