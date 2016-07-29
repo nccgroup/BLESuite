@@ -1,0 +1,39 @@
+Source: gattlib
+Maintainer: Oscar Aceña Herrera <oscaracena@gmail.com>
+Section: python
+Priority: optional
+Build-Depends: python-all-dev,
+	       python-setuptools,
+	       python3-all-dev,
+	       python3-setuptools,
+	       debhelper (>= 9),
+	       dh-python,
+	       pkg-config,
+	       libglib2.0-dev,
+	       libboost-python1.55-dev,
+	       libboost-thread1.55-dev,
+	       libbluetooth-dev (>= 4.101)
+Standards-Version: 3.9.6
+Homepage: https://bitbucket.org/OscarAcena/pygattlib
+X-Python-Version: >= 2.6
+X-Python3-Version: >= 3.2
+
+Package: python-gattlib
+Architecture: any
+Depends: ${misc:Depends},
+	 ${python:Depends},
+	 ${shlibs:Depends}
+Description: Bluetooth LE GATT library (Python 2)
+ This is a Python library to use the GATT Protocol for Bluetooth LE
+ devices. It is a wrapper around the implementation used by gatttool
+ in bluez package. Python 2 version.
+
+Package: python3-gattlib
+Architecture: any
+Depends: ${misc:Depends},
+	 ${python3:Depends},
+	 ${shlibs:Depends}
+Description: Bluetooth LE GATT library (Python 3)
+ This is a Python library to use the GATT Protocol for Bluetooth LE
+ devices. It is a wrapper around the implementation used by gatttool
+ in bluez package. Python 3 version.

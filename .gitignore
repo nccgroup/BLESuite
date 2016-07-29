@@ -1,0 +1,14 @@
+#"Compiled" Python files
+*.pyc
+
+#Sphinx Build Files
+/docs/_build/*
+
+#build folder
+/build/*
+
+#dist folder
+/dist/*
+
+#egg
+/BLESuite.egg-info/*

@@ -1,0 +1,41 @@
+gattlib (0.20150131-1) unstable; urgency=low
+
+  * New release; fix threading issues, added notifications on python
+
+ -- Oscar Aceña Herrera <oscaracena@gmail.com>  Sat, 31 Jan 2015 18:14:43 +0100
+
+gattlib (0.20150130-1) unstable; urgency=low
+
+  * New release for python3
+
+ -- Oscar Aceña Herrera <oscaracena@gmail.com>  Fri, 30 Jan 2015 09:53:05 +0100
+
+gattlib (0.20150122-1) unstable; urgency=low
+
+  * New release, some bugfix
+
+ -- Oscar Aceña Herrera <oscaracena@gmail.com>  Thu, 22 Jan 2015 19:05:19 +0100
+
+gattlib (0.20150119.1-1) unstable; urgency=low
+
+  * New release
+
+ -- Oscar Aceña Herrera <oscaracena@gmail.com>  Mon, 19 Jan 2015 17:56:21 +0100
+
+gattlib (0.20150119-1) unstable; urgency=low
+
+  * New release
+
+ -- Oscar Aceña Herrera <oscaracena@gmail.com>  Mon, 19 Jan 2015 09:05:41 +0100
+
+gattlib (0.20150112-1) unstable; urgency=low
+
+  * New release
+
+ -- Oscar Aceña Herrera <oscaracena@gmail.com>  Mon, 12 Jan 2015 08:50:24 +0100
+
+gattlib (0.20141222-1) unstable; urgency=low
+
+  * source package automatically created by stdeb 0.8.2
+
+ -- Oscar Aceña Herrera <oscaracena@gmail.com>  Mon, 22 Dec 2014 19:57:22 +0100

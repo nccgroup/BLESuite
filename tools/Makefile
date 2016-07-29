@@ -1,0 +1,1 @@
+gcc bdaddr.c oui.c -lbluetooth -o bdaddr

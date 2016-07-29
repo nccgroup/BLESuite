@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: gattlib
+Version: 0.20150805
+Summary: Library to access Bluetooth LE devices
+Home-page: https://bitbucket.org/OscarAcena/pygattlib
+Author: Oscar Acena
+Author-email: oscar.acena@gmail.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN

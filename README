@@ -1,0 +1,50 @@
+BLESuite README
+
+BLESuite is both a Python package that provides an easier way to
+test Bluetooth Low Energy (BLE) devices. By utilizing pygattlib and the Bluez Bluetooth stack,
+we are able to scan, read from, and write to BLE devices using Generic Attribute Profile (GATT) over the
+Attribute protocol (ATT).
+The goal of this tool is to create
+an alternative to the Bluez gatttool typically used for communicating with BLE devices using
+the GATT/ATT protocol.
+
+Features:
+    * Scan for BTLE devices
+    * Scan BTLE devices for primary services and characteristics
+    * SmartScan - Scan a BTLE device for basic information, primary services, characteristics, and then
+    determining which descriptors are present, their handle, permissions, and current value (if applicable)
+    * Write arbitrary values to a BTLE device (sync/async)
+    * Read values from a specific handle and/or UUID on a BTLE device (sync/async)
+    * Bluetooth address (BD_ADDR) spoofing (only some Bluetooth adapter chipsets are supported). This can be enabled by uncommenting a line in setup.py. Beware
+    that this does require tools to compile CPython and libbluetooth.
+
+
+Note to the reader:
+    This tool was developed and tested on Debian 8. Specifically the testing
+    distribution that includes a more current version of the Bluez Bluetooth
+    stack (version 5.36 at the time of writing this)
+
+    In order to access Bluetooth Low Energy functionality, you must have access
+    to a Bluetooth adapter that supports it. I use the Pluggable Technologies
+    USB-BT4LE Adapter.
+
+The following are requirements in order to use BLESuite:
+    * Bluez bluetooth stack
+    * libbluetooth-dev and libpython-dev
+    * Python library pygattlib. I am currently maintaining my own fork of pygattlib
+    found at https://bitbucket.org/ttrabun/pygattlib-withhandles until the owner
+    of pygattlib adds a fix for returning handles when reading UUIDs.
+
+To install Python library:
+    Open the PyGattlib directory and run sudo python setup.py install
+    Run sudo python setup.py install
+
+To view full documenation for the package, please install sphinx and sphinx_rtd_theme
+using pip (if applicable) and use the make file in bleSuite/docs
+
+
+
+
+
+
+
