@@ -21,6 +21,17 @@
  *
  */
 
+ /* THIS FILE HAS BEEN MODIFIED WITH THE FOLLOWING CHANGES:
+        - Modified the "main" function. Removed command line options
+	and logging statements. Renamed "main" to "bdaddr_bdaddr".
+	Converted "main" function to a function that can be accessed
+	by Python as an extension module.
+	- Added additional functions and variables to allow Python
+	to access the "bdaddr_bdaddr" function as an extension module.
+
+    Modifications made by Taylor Trabun (taylor.trabun@nccgroup.trust)
+  */
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif

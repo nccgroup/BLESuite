@@ -3,6 +3,14 @@
 // Copyright (C) 2014, Oscar Acena <oscaracena@gmail.com>
 // This software is under the terms of Apache License v2 or later.
 
+
+/* THIS FILE HAS BEEN MODIFIED WITH THE FOLLOWING CHANGES:
+      - In function "read_by_uuid_cb", removed code the
+      strips handle of characteristic in the received packet.
+
+   Changes made by Taylor Trabun (taylor.trabun@nccgroup.trust)
+
+ */
 #include <boost/thread/thread.hpp>
 #include <boost/python/dict.hpp>
 #include <boost/python/extract.hpp>
