@@ -1,6 +1,65 @@
 Examples
 ========
 
+Read By UUID Example
+--------------------
+.. code-block:: python
+
+   from bleSuite import bleConnectionManager, bleServiceManager
+
+   address = "BC:6A:29:AC:1F:2A"
+   adapter = ""
+   addressType = "public"
+   securityLevel = "low"
+
+   #create connection manager to establish and maintain our connection
+   connectionManager = bleConnectionManager.BLEConnectionManager(address, adapter, addressType, securityLevel)
+
+   #connect
+   connectionManager.connect()
+
+   #read UUID 2A00
+   data = bleServiceManager.bleServiceReadByUUID(connectionManager, "2A00")
+   
+
+Asynchronous Communication
+--------------------------
+.. code-block:: python
+
+   from bleSuite import bleConnectionManager, bleServiceManager
+   import time
+
+   def asyncCallback(data):
+		print "Response1 Received Data:"
+   print data
+
+   address = "BC:6A:29:AC:1F:2A"
+   adapter = ""
+   addressType = "public"
+   securityLevel = "low"
+   handle = int("6c", 16)
+
+   connectionManager = bleConnectionManager.BLEConnectionManager(address, adapter, addressType, securityLevel)
+
+   connectionManager.connect()
+
+   #async write that calls asyncCallback when response is received
+   respID, resp = bleServiceManager.bleServiceReadByHandleAsync(connectionManager, handle, asyncCallback)
+
+   #async write that has no callback
+   respID2, resp2 = bleServiceManager.bleServiceReadByHandleAsync(connectionManager, handle)
+
+   #attempt to get response from resp2 five times over five seconds
+   tries = 0
+   while tries < 5:
+		if resp2.received():
+		     print "Response 2 Received Data:"
+		     print resp2.received()
+		     break
+
+		time.sleep(1)
+		tries +=1
+
 Notification Example
 --------------------
 .. code-block:: python
@@ -73,3 +132,30 @@ Notification Example
 		    
 	       except RuntimeError as e:
 	            continue
+
+
+SmartScan Example
+-----------------
+.. code-block:: python
+
+   from bleSuite import bleConnectionManager, bleSmartScan
+
+   address = "BC:6A:29:AC:1F:2A"
+   adapter = ""
+   addressType = "public"
+   securityLevel = "low"
+
+   #create connection manager to establish and maintain our connection
+   connectionManager = bleConnectionManager.BLEConnectionManager(address, adapter, addressType, securityLevel)
+
+   #connect
+   connectionManager.connect()
+
+   #create our BLEDevice object that represents our target BLE device
+   #this object stores all properties obtained from the device. Populate
+   #with general device info, services, characteristics, and descriptors
+   #with current values
+   bleDevice = bleSmartScan.bleSmartScan(address, connectionManager)
+
+   #print device representation
+   bleDevice.printDeviceStructure()
