@@ -28,6 +28,6 @@ setup(
     #long_description = long_descr,
     author = "Taylor Trabun",
     #url = "TBD",
-    author_email = "taylortrabun@gmail.com"
+    author_email = "taylor.trabun@nccgroup.trust"
 
     )
