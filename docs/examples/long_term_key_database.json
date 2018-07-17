@@ -1,0 +1,13 @@
+[
+    {
+        "rand": "758ee28fd3ac27eb", 
+        "csrk": null, 
+        "irk": null, 
+        "security_level": 2, 
+        "address": "626bf4c512be", 
+        "ltk": "74b6e83dfc209d944c3056015edae5c7", 
+        "ediv": 56007, 
+        "address_type": 1, 
+        "security_mode": 1
+    }
+]

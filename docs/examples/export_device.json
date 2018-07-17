@@ -1,0 +1,180 @@
+{
+    "name": "", 
+    "address": "00:00:00:00:00:00", 
+    "address_type": "public", 
+    "services": [
+        {
+            "uuid": "2124", 
+            "start_handle": 1, 
+            "end_handle": 6, 
+            "attribute_type": "2800", 
+            "service_definition_attribute_properties": [
+                "read"
+            ], 
+            "service_definition_attribute_read_permission": {
+                "security_mode": 1, 
+                "security_level": 1
+            }, 
+            "service_definition_attribute_write_permission": {
+                "security_mode": 0, 
+                "security_level": 0
+            }, 
+            "service_definition_attribute_require_authorization": false, 
+            "characteristics": [
+                {
+                    "uuid": "2124", 
+                    "handle": 2, 
+                    "value_handle": 3, 
+                    "value": "testValue1", 
+                    "gatt_properties": [
+                        "read", 
+                        "write"
+                    ], 
+                    "characteristic_definition_attribute_read_permission": {
+                        "security_mode": 1, 
+                        "security_level": 1
+                    }, 
+                    "characteristic_definition_attribute_write_permission": {
+                        "security_mode": 0, 
+                        "security_level": 0
+                    }, 
+                    "characteristic_definition_attribute_require_authorization": false, 
+                    "characteristic_value_attribute_properties": [
+                        "read", 
+                        "write"
+                    ], 
+                    "characteristic_value_attribute_read_permission": {
+                        "security_mode": 1, 
+                        "security_level": 1
+                    }, 
+                    "characteristic_value_attribute_write_permission": {
+                        "security_mode": 1, 
+                        "security_level": 1
+                    }, 
+                    "characteristic_value_attribute_require_authorization": false, 
+                    "descriptors": [
+                        {
+                            "handle": 4, 
+                            "uuid": "2901", 
+                            "value": "Characteristic 1",
+                            "characteristic_descriptor_attribute_read_permission": {
+                                "security_mode": 1, 
+                                "security_level": 1
+                            }, 
+                            "characteristic_descriptor_attribute_write_permission": {
+                                "security_mode": 0, 
+                                "security_level": 0
+                            }, 
+                            "characteristic_descriptor_attribute_require_authorization": false
+                        }
+                    ]
+                }
+            ], 
+            "includes": [
+                {
+                    "handle": 5, 
+                    "included_service_att_handle": 7, 
+                    "included_service_end_group_handle": 12, 
+                    "included_service_uuid": "000AA000-0BB0-10C0-80A0-00805F9B34FB", 
+                    "include_definition_attribute_read_permission": {
+                        "security_mode": 1, 
+                        "security_level": 1
+                    }, 
+                    "include_definition_attribute_write_permission": {
+                        "security_mode": 0, 
+                        "security_level": 0
+                    }, 
+                    "include_definition_attribute_require_authorization": false
+                }
+            ]
+        }, 
+        {
+            "uuid": "000AA000-0BB0-10C0-80A0-00805F9B34FB", 
+            "start_handle": 7, 
+            "end_handle": 12, 
+            "attribute_type": "2800", 
+            "service_definition_attribute_properties": [
+                "read"
+            ], 
+            "service_definition_attribute_read_permission": {
+                "security_mode": 1, 
+                "security_level": 1
+            }, 
+            "service_definition_attribute_write_permission": {
+                "security_mode": 0, 
+                "security_level": 0
+            }, 
+            "service_definition_attribute_require_authorization": false, 
+            "characteristics": [
+                {
+                    "uuid": "2125", 
+                    "handle": 8, 
+                    "value_handle": 9, 
+                    "value": "newTestValue", 
+                    "gatt_properties": [
+                        "notify", 
+                        "read", 
+                        "write"
+                    ], 
+                    "characteristic_definition_attribute_read_permission": {
+                        "security_mode": 1, 
+                        "security_level": 1
+                    }, 
+                    "characteristic_definition_attribute_write_permission": {
+                        "security_mode": 0, 
+                        "security_level": 0
+                    }, 
+                    "characteristic_definition_attribute_require_authorization": false, 
+                    "characteristic_value_attribute_properties": [
+                        "read", 
+                        "write"
+                    ], 
+                    "characteristic_value_attribute_read_permission": {
+                        "security_mode": 1, 
+                        "security_level": 1
+                    }, 
+                    "characteristic_value_attribute_write_permission": {
+                        "security_mode": 1, 
+                        "security_level": 2
+                    }, 
+                    "characteristic_value_attribute_require_authorization": false, 
+                    "descriptors": [
+                        {
+                            "handle": 10, 
+                            "uuid": "2901", 
+                            "value": "Characteristic2", 
+                            "characteristic_descriptor_attribute_read_permission": {
+                                "security_mode": 1, 
+                                "security_level": 1
+                            }, 
+                            "characteristic_descriptor_attribute_write_permission": {
+                                "security_mode": 0, 
+                                "security_level": 0
+                            }, 
+                            "characteristic_descriptor_attribute_require_authorization": false
+                        }, 
+                        {
+                            "handle": 11, 
+                            "uuid": "2902", 
+                            "value": "\u0000\u0000", 
+                            "characteristic_descriptor_attribute_properties": [
+                                "read", 
+                                "write"
+                            ], 
+                            "characteristic_descriptor_attribute_read_permission": {
+                                "security_mode": 1, 
+                                "security_level": 1
+                            }, 
+                            "characteristic_descriptor_attribute_write_permission": {
+                                "security_mode": 1, 
+                                "security_level": 1
+                            }, 
+                            "characteristic_descriptor_attribute_require_authorization": false
+                        }
+                    ]
+                }
+            ], 
+            "includes": []
+        }
+    ]
+}
