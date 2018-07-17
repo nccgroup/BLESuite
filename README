@@ -1,4 +1,4 @@
-BLESuite README
+BLESuite Version 1.0 README
 
 BLESuite is both a Python package that provides an easier way to
 test Bluetooth Low Energy (BLE) devices. By utilizing pygattlib and the Bluez Bluetooth stack,
