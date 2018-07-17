@@ -3,6 +3,7 @@ import logging
 import socket as s
 from scapy.layers.bluetooth import *
 import os
+import sys
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
