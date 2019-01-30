@@ -1,5 +1,5 @@
 pycrypto
 gevent
-pyshark
+pyshark==0.3.8
 prettytable
 sphinx_rtd_theme
