@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -12,12 +12,17 @@ Generators and packet meta classes.
 ################
 
 from __future__ import absolute_import
+
+from functools import reduce
 import operator
+import os
 import re
 import random
 import socket
+import subprocess
 import types
-from functools import reduce
+
+from scapy.consts import WINDOWS
 from scapy.modules.six.moves import range
 
 
@@ -40,8 +45,8 @@ def _get_values(value):
             all(hasattr(i, "__int__") for i in value)):
         # We use values[1] + 1 as stop value for (x)range to maintain
         # the behavior of using tuples as field `values`
-        return range(*((int(value[0]), int(value[1]) + 1)
-                       + tuple(int(v) for v in value[2:])))
+        return range(*((int(value[0]), int(value[1]) + 1) +
+                       tuple(int(v) for v in value[2:])))
     return value
 
 
@@ -73,7 +78,7 @@ class SetGen(Gen):
 class Net(Gen):
     """Generate a list of IPs from a network address or a name"""
     name = "ip"
-    ip_regex = re.compile(r"^(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)(/[0-3]?[0-9])?$")
+    ip_regex = re.compile(r"^(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)(/[0-3]?[0-9])?$")  # noqa: E501
 
     @staticmethod
     def _parse_digit(a, netmask):
@@ -84,9 +89,9 @@ class Net(Gen):
             x, y = [int(d) for d in a.split('-')]
             if x > y:
                 y = x
-            a = (x & (0xff << netmask), max(y, (x | (0xff >> (8 - netmask)))) + 1)
+            a = (x & (0xff << netmask), max(y, (x | (0xff >> (8 - netmask)))) + 1)  # noqa: E501
         else:
-            a = (int(a) & (0xff << netmask), (int(a) | (0xff >> (8 - netmask))) + 1)
+            a = (int(a) & (0xff << netmask), (int(a) | (0xff >> (8 - netmask))) + 1)  # noqa: E501
         return a
 
     @classmethod
@@ -95,7 +100,7 @@ class Net(Gen):
         if not cls.ip_regex.match(net):
             tmp[0] = socket.gethostbyname(tmp[0])
         netmask = int(tmp[1])
-        ret_list = [cls._parse_digit(x, y - netmask) for (x, y) in zip(tmp[0].split('.'), [8, 16, 24, 32])]
+        ret_list = [cls._parse_digit(x, y - netmask) for (x, y) in zip(tmp[0].split('.'), [8, 16, 24, 32])]  # noqa: E501
         return ret_list, netmask
 
     def __init__(self, net):
@@ -116,7 +121,7 @@ class Net(Gen):
         return reduce(operator.mul, ((y - x) for (x, y) in self.parsed), 1)
 
     def choice(self):
-        return ".".join(str(random.randint(v[0], v[1] - 1)) for v in self.parsed)
+        return ".".join(str(random.randint(v[0], v[1] - 1)) for v in self.parsed)  # noqa: E501
 
     def __repr__(self):
         return "Net(%r)" % self.repr
@@ -133,7 +138,7 @@ class Net(Gen):
             p2 = other.parsed
         else:
             p2, nm2 = self._parse_net(other)
-        return all(a1 <= a2 and b1 >= b2 for (a1, b1), (a2, b2) in zip(self.parsed, p2))
+        return all(a1 <= a2 and b1 >= b2 for (a1, b1), (a2, b2) in zip(self.parsed, p2))  # noqa: E501
 
     def __rcontains__(self, other):
         return self in self.__class__(other)
@@ -164,7 +169,7 @@ class OID(Gen):
             i = 0
             while True:
                 if i >= len(ii):
-                    raise StopIteration
+                    return
                 if ii[i] < self.cmpt[i][1]:
                     ii[i] += 1
                     break
@@ -173,7 +178,7 @@ class OID(Gen):
                 i += 1
 
     def __iterlen__(self):
-        return reduce(operator.mul, (max(y - x, 0) + 1 for (x, y) in self.cmpt), 1)
+        return reduce(operator.mul, (max(y - x, 0) + 1 for (x, y) in self.cmpt), 1)  # noqa: E501
 
 
 ######################################
@@ -182,11 +187,11 @@ class OID(Gen):
 
 class Packet_metaclass(type):
     def __new__(cls, name, bases, dct):
-        if "fields_desc" in dct:  # perform resolution of references to other packets
+        if "fields_desc" in dct:  # perform resolution of references to other packets  # noqa: E501
             current_fld = dct["fields_desc"]
             resolved_fld = []
             for f in current_fld:
-                if isinstance(f, Packet_metaclass):  # reference to another fields_desc
+                if isinstance(f, Packet_metaclass):  # reference to another fields_desc  # noqa: E501
                     for f2 in f.fields_desc:
                         resolved_fld.append(f2)
                 else:
@@ -229,8 +234,9 @@ class Packet_metaclass(type):
         for f in newcls.fields_desc:
             if hasattr(f, "register_owner"):
                 f.register_owner(newcls)
-        from scapy import config
-        config.conf.layers.register(newcls)
+        if newcls.__name__[0] != "_":
+            from scapy import config
+            config.conf.layers.register(newcls)
         return newcls
 
     def __getattr__(self, attr):
@@ -243,7 +249,7 @@ class Packet_metaclass(type):
         if "dispatch_hook" in cls.__dict__:
             try:
                 cls = cls.dispatch_hook(*args, **kargs)
-            except:
+            except Exception:
                 from scapy import config
                 if config.conf.debug_dissector:
                     raise
@@ -275,10 +281,10 @@ class NewDefaultValues(Packet_metaclass):
                 f, l, _, line = tb
                 if line.startswith("class"):
                     break
-        except:
-            f, l = "??", -1
+        except Exception:
+            f, l = "??", -1  # noqa: E741
             raise
-        log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i).", f, l)
+        log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i).", f, l)  # noqa: E501
 
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
 
@@ -293,3 +299,79 @@ class BasePacket(Gen):
 
 class BasePacketList(object):
     __slots__ = []
+
+
+class _CanvasDumpExtended(object):
+    def psdump(self, filename=None, **kargs):
+        """
+        psdump(filename=None, layer_shift=0, rebuild=1)
+
+        Creates an EPS file describing a packet. If filename is not provided a
+        temporary file is created and gs is called.
+
+        :param filename: the file's filename
+        """
+        from scapy.config import conf
+        from scapy.utils import get_temp_file, ContextManagerSubprocess
+        canvas = self.canvas_dump(**kargs)
+        if filename is None:
+            fname = get_temp_file(autoext=kargs.get("suffix", ".eps"))
+            canvas.writeEPSfile(fname)
+            if WINDOWS and conf.prog.psreader is None:
+                os.startfile(fname)
+            else:
+                with ContextManagerSubprocess("psdump()", conf.prog.psreader):
+                    subprocess.Popen([conf.prog.psreader, fname])
+        else:
+            canvas.writeEPSfile(filename)
+        print()
+
+    def pdfdump(self, filename=None, **kargs):
+        """
+        pdfdump(filename=None, layer_shift=0, rebuild=1)
+
+        Creates a PDF file describing a packet. If filename is not provided a
+        temporary file is created and xpdf is called.
+
+        :param filename: the file's filename
+        """
+        from scapy.config import conf
+        from scapy.utils import get_temp_file, ContextManagerSubprocess
+        canvas = self.canvas_dump(**kargs)
+        if filename is None:
+            fname = get_temp_file(autoext=kargs.get("suffix", ".pdf"))
+            canvas.writePDFfile(fname)
+            if WINDOWS and conf.prog.pdfreader is None:
+                os.startfile(fname)
+            else:
+                with ContextManagerSubprocess("pdfdump()",
+                                              conf.prog.pdfreader):
+                    subprocess.Popen([conf.prog.pdfreader, fname])
+        else:
+            canvas.writePDFfile(filename)
+        print()
+
+    def svgdump(self, filename=None, **kargs):
+        """
+        svgdump(filename=None, layer_shift=0, rebuild=1)
+
+        Creates an SVG file describing a packet. If filename is not provided a
+        temporary file is created and gs is called.
+
+        :param filename: the file's filename
+        """
+        from scapy.config import conf
+        from scapy.utils import get_temp_file, ContextManagerSubprocess
+        canvas = self.canvas_dump(**kargs)
+        if filename is None:
+            fname = get_temp_file(autoext=kargs.get("suffix", ".svg"))
+            canvas.writeSVGfile(fname)
+            if WINDOWS and conf.prog.svgreader is None:
+                os.startfile(fname)
+            else:
+                with ContextManagerSubprocess("svgdump()",
+                                              conf.prog.svgreader):
+                    subprocess.Popen([conf.prog.svgreader, fname])
+        else:
+            canvas.writeSVGfile(filename)
+        print()

@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -7,21 +7,22 @@
 Packet sending and receiving with libdnet and libpcap/WinPcap.
 """
 
-import time
-import struct
-import sys
+import os
 import platform
 import socket
+import struct
+import time
 
-from scapy.data import *
-from scapy.compat import *
+from scapy.automaton import SelectableObject
+from scapy.arch.common import _select_nonblock, TimeoutElapsed
+from scapy.compat import raw, plain_str, chb
 from scapy.config import conf
+from scapy.consts import WINDOWS
+from scapy.data import MTU, ETH_P_ALL, ARPHDR_ETHER, ARPHDR_LOOPBACK
+from scapy.pton_ntop import inet_ntop
 from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
-from scapy.pton_ntop import inet_ntop
-from scapy.automaton import SelectableObject
-import scapy.arch
 import scapy.consts
 
 if not scapy.consts.WINDOWS:
@@ -31,23 +32,25 @@ if not scapy.consts.WINDOWS:
 #  COMMON  #
 ############
 
-
-class PcapTimeoutElapsed(Scapy_Exception):
-    pass
+# From BSD net/bpf.h
+# BIOCIMMEDIATE = 0x80044270
+BIOCIMMEDIATE = -2147204496
 
 
 class _L2pcapdnetSocket(SuperSocket, SelectableObject):
+    read_allowed_exceptions = (TimeoutElapsed,)
+
     def check_recv(self):
         return True
 
     def recv_raw(self, x=MTU):
-        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""
+        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
         ll = self.ins.datalink()
         if ll in conf.l2types:
             cls = conf.l2types[ll]
         else:
             cls = conf.default_l2
-            warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s",
+            warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s",  # noqa: E501
                     self.iface, ll, cls.name)
 
         pkt = None
@@ -56,7 +59,7 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
             if pkt is not None:
                 ts, pkt = pkt
             if pkt is None and scapy.consts.WINDOWS:
-                raise PcapTimeoutElapsed  # To understand this behavior, have a look at L2pcapListenSocket's note
+                raise TimeoutElapsed  # To understand this behavior, have a look at L2pcapListenSocket's note  # noqa: E501
             if pkt is None:
                 return None, None, None
         return cls, pkt, ts
@@ -69,31 +72,80 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
         self.ins.setnonblock(0)
         return p
 
+    @staticmethod
+    def select(sockets, remain=None):
+        return _select_nonblock(sockets, remain=None)
+
 
 ###################
 #  WINPCAP/NPCAP  #
 ###################
 
-
 if conf.use_winpcapy:
-    NPCAP_PATH = os.environ["WINDIR"] + "\\System32\\Npcap"
-    #  Part of the code from https://github.com/phaethon/scapy translated to python2.X
-    try:
-        from scapy.modules.winpcapy import *
+    from ctypes import POINTER, byref, create_string_buffer, c_ubyte, cast
 
-        def winpcapy_get_if_list():
+    NPCAP_PATH = os.environ["WINDIR"] + "\\System32\\Npcap"
+    # Part of the Winpcapy integration was inspired by phaethon/scapy
+    # but he destroyed the commit history, so there is no link to that
+    try:
+        from scapy.modules.winpcapy import PCAP_ERRBUF_SIZE, pcap_if_t, \
+            sockaddr_in, sockaddr_in6, pcap_findalldevs, pcap_freealldevs, \
+            pcap_lib_version, pcap_close, \
+            pcap_open_live, pcap_setmintocopy, pcap_pkthdr, \
+            pcap_next_ex, pcap_datalink, \
+            pcap_compile, pcap_setfilter, pcap_setnonblock, pcap_sendpacket, \
+            bpf_program as winpcapy_bpf_program
+
+        if conf.use_npcap:
+            # Npcap-only functions
+            from scapy.modules.winpcapy import pcap_create, pcap_set_snaplen, \
+                pcap_set_promisc, pcap_set_timeout, pcap_set_rfmon, \
+                pcap_activate
+
+        def load_winpcapy():
+            """This functions calls Winpcap/Npcap pcap_findalldevs function,
+            and extracts and parse all the data scapy will need to use it:
+             - the Interface List
+            This data is stored in their respective conf.cache_* subfields:
+                conf.cache_iflist
+            """
             err = create_string_buffer(PCAP_ERRBUF_SIZE)
             devs = POINTER(pcap_if_t)()
-            ret = []
+            if_list = {}
             if pcap_findalldevs(byref(devs), err) < 0:
-                return ret
+                return
             try:
                 p = devs
+                # Iterate through the different interfaces
                 while p:
-                    ret.append(plain_str(p.contents.name))
+                    name = plain_str(p.contents.name)  # GUID
+                    description = plain_str(p.contents.description)  # NAME
+                    flags = p.contents.flags  # FLAGS
+                    ips = []
+                    a = p.contents.addresses
+                    while a:
+                        # IPv4 address
+                        family = a.contents.addr.contents.sa_family
+                        ap = a.contents.addr
+                        if family == socket.AF_INET:
+                            val = cast(ap, POINTER(sockaddr_in))
+                            val = val.contents.sin_addr[:]
+                        elif family == socket.AF_INET6:
+                            val = cast(ap, POINTER(sockaddr_in6))
+                            val = val.contents.sin6_addr[:]
+                        else:
+                            # Unknown address family
+                            # (AF_LINK isn't a thing on Windows)
+                            a = a.contents.next
+                            continue
+                        addr = inet_ntop(family, bytes(bytearray(val)))
+                        if addr != "0.0.0.0":
+                            ips.append(addr)
+                        a = a.contents.next
+                    if_list[name] = (description, ips, flags)
                     p = p.contents.next
-                return ret
-            except:
+                conf.cache_iflist = if_list
+            except Exception:
                 raise
             finally:
                 pcap_freealldevs(devs)
@@ -101,87 +153,32 @@ if conf.use_winpcapy:
         version = pcap_lib_version()
         if b"winpcap" in version.lower():
             if os.path.exists(NPCAP_PATH + "\\wpcap.dll"):
-                warning("Winpcap is installed over Npcap. Will use Winpcap (see 'Winpcap/Npcap conflicts' in scapy's docs)")
+                warning("Winpcap is installed over Npcap. "
+                        "Will use Winpcap (see 'Winpcap/Npcap conflicts' "
+                        "in Scapy's docs)")
             elif platform.release() != "XP":
-                warning("WinPcap is now deprecated (not maintened). Please use Npcap instead")
+                warning("WinPcap is now deprecated (not maintained). "
+                        "Please use Npcap instead")
         elif b"npcap" in version.lower():
             conf.use_npcap = True
-            LOOPBACK_NAME = scapy.consts.LOOPBACK_NAME = "Npcap Loopback Adapter"
-    except OSError as e:
-        def winpcapy_get_if_list():
-            return []
+            LOOPBACK_NAME = scapy.consts.LOOPBACK_NAME = "Npcap Loopback Adapter"  # noqa: E501
+    except OSError:
         conf.use_winpcapy = False
         if conf.interactive:
-            log_loading.warning("wpcap.dll is not installed. You won't be able to send/recieve packets. Visit the scapy's doc to install it")
+            log_loading.warning("wpcap.dll is not installed. "
+                                "Restricted mode enabled ! "
+                                "Visit the Scapy's doc to install it")
 
-    # From BSD net/bpf.h
-    # BIOCIMMEDIATE=0x80044270
-    BIOCIMMEDIATE = -2147204496
-
-    def get_if_raw_addr(iff):
-        """Returns the raw ip address corresponding to the NetworkInterface."""
-        if conf.cache_ipaddrs:
-            return conf.cache_ipaddrs.get(iff.pcap_name, None)
-        err = create_string_buffer(PCAP_ERRBUF_SIZE)
-        devs = POINTER(pcap_if_t)()
-
-        if pcap_findalldevs(byref(devs), err) < 0:
-            return None
-        try:
-            p = devs
-            while p:
-                a = p.contents.addresses
-                while a:
-                    if a.contents.addr.contents.sa_family == socket.AF_INET:
-                        ap = a.contents.addr
-                        val = cast(ap, POINTER(sockaddr_in))
-                        if_raw_addr = b"".join(chb(x) for x in val.contents.sin_addr[:4])
-                        if if_raw_addr != b'\x00\x00\x00\x00':
-                            conf.cache_ipaddrs[plain_str(p.contents.name)] = if_raw_addr
-                    a = a.contents.next
-                p = p.contents.next
-            return conf.cache_ipaddrs.get(iff.pcap_name, None)
-        finally:
-            pcap_freealldevs(devs)
     if conf.use_winpcapy:
         def get_if_list():
             """Returns all pcap names"""
-            if conf.cache_iflist:
-                return conf.cache_iflist
-            iflist = winpcapy_get_if_list()
-            conf.cache_iflist = iflist
-            return iflist
+            if not conf.cache_iflist:
+                load_winpcapy()
+            return list(conf.cache_iflist.keys())
     else:
-        get_if_list = winpcapy_get_if_list
+        get_if_list = lambda: []
 
-    def in6_getifaddr_raw():
-        """Returns all available IPv6 on the computer, read from winpcap."""
-        err = create_string_buffer(PCAP_ERRBUF_SIZE)
-        devs = POINTER(pcap_if_t)()
-        ret = []
-        if pcap_findalldevs(byref(devs), err) < 0:
-            return ret
-        try:
-            p = devs
-            ret = []
-            while p:
-                a = p.contents.addresses
-                while a:
-                    if a.contents.addr.contents.sa_family == socket.AF_INET6:
-                        ap = a.contents.addr
-                        val = cast(ap, POINTER(sockaddr_in6))
-                        addr = inet_ntop(socket.AF_INET6, b"".join(chb(x) for x in val.contents.sin6_addr[:]))
-                        scope = scapy.utils6.in6_getscope(addr)
-                        ret.append((addr, scope, plain_str(p.contents.name)))
-                    a = a.contents.next
-                p = p.contents.next
-            return ret
-        finally:
-            pcap_freealldevs(devs)
-
-    from ctypes import POINTER, byref, create_string_buffer
-
-    class _PcapWrapper_pypcap:
+    class _PcapWrapper_winpcap:  # noqa: F811
         """Wrapper for the WinPcap calls"""
 
         def __init__(self, device, snaplen, promisc, to_ms, monitor=None):
@@ -197,17 +194,24 @@ if conf.use_winpcapy:
                 if pcap_activate(self.pcap) != 0:
                     raise OSError("Could not activate the pcap handler")
             else:
-                self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)
+                self.pcap = pcap_open_live(self.iface,
+                                           snaplen, promisc, to_ms,
+                                           self.errbuf)
+
+            # Winpcap/Npcap exclusive: make every packet to be instantly
+            # returned, and not buffered within Winpcap/Npcap
+            pcap_setmintocopy(self.pcap, 0)
+
             self.header = POINTER(pcap_pkthdr)()
             self.pkt_data = POINTER(c_ubyte)()
-            self.bpf_program = bpf_program()
+            self.bpf_program = winpcapy_bpf_program()
 
         def next(self):
-            c = pcap_next_ex(self.pcap, byref(self.header), byref(self.pkt_data))
+            c = pcap_next_ex(self.pcap, byref(self.header), byref(self.pkt_data))  # noqa: E501
             if not c > 0:
                 return
-            ts = self.header.contents.ts.tv_sec + float(self.header.contents.ts.tv_usec) / 1000000
-            pkt = b"".join(chb(i) for i in self.pkt_data[:self.header.contents.len])
+            ts = self.header.contents.ts.tv_sec + float(self.header.contents.ts.tv_usec) / 1000000  # noqa: E501
+            pkt = b"".join(chb(i) for i in self.pkt_data[:self.header.contents.len])  # noqa: E501
             return ts, pkt
         __next__ = next
 
@@ -215,14 +219,17 @@ if conf.use_winpcapy:
             return pcap_datalink(self.pcap)
 
         def fileno(self):
-            if sys.platform.startswith("win"):
+            if WINDOWS:
                 log_loading.error("Cannot get selectable PCAP fd on Windows")
                 return 0
-            return pcap_get_selectable_fd(self.pcap)
+            else:
+                # This does not exist under Windows
+                from scapy.modules.winpcapy import pcap_get_selectable_fd
+                return pcap_get_selectable_fd(self.pcap)
 
         def setfilter(self, f):
             filter_exp = create_string_buffer(f.encode("utf8"))
-            if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:
+            if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:  # noqa: E501
                 log_loading.error("Could not compile filter expression %s", f)
                 return False
             else:
@@ -240,7 +247,10 @@ if conf.use_winpcapy:
         def close(self):
             pcap_close(self.pcap)
 
-    open_pcap = lambda *args, **kargs: _PcapWrapper_pypcap(*args, **kargs)
+    open_pcap = lambda *args, **kargs: _PcapWrapper_winpcap(*args, **kargs)
+else:
+    NPCAP_PATH = ""
+    get_if_list = lambda: {}
 
 ################
 #  PCAP/PCAPY  #
@@ -248,42 +258,44 @@ if conf.use_winpcapy:
 
 
 if conf.use_pcap:
+    # We try from most to less tested/used
     try:
-        import pcap  # python-pypcap
-        _PCAP_MODE = "pypcap"
+        import pcapy as pcap  # python-pcapy
+        _PCAP_MODE = "pcapy"
     except ImportError as e:
         try:
-            import libpcap as pcap  # python-libpcap
-            _PCAP_MODE = "libpcap"
+            import pcap  # python-pypcap
+            _PCAP_MODE = "pypcap"
         except ImportError as e2:
             try:
-                import pcapy as pcap  # python-pcapy
-                _PCAP_MODE = "pcapy"
-            except ImportError as e3:
+                # This is our last chance, but we don't really
+                # recommand it as very little tested
+                import libpcap as pcap  # python-libpcap
+                _PCAP_MODE = "libpcap"
+            except ImportError:
                 if conf.interactive:
-                    log_loading.error("Unable to import pcap module: %s/%s", e, e2)
+                    log_loading.error(
+                        "Unable to import any of the pcap "
+                        "modules: %s/%s", e, e2
+                    )
                     conf.use_pcap = False
                 else:
                     raise
     if conf.use_pcap:
-
-        # From BSD net/bpf.h
-        # BIOCIMMEDIATE=0x80044270
-        BIOCIMMEDIATE = -2147204496
-
         if _PCAP_MODE == "pypcap":  # python-pypcap
-            class _PcapWrapper_pypcap:
-                def __init__(self, device, snaplen, promisc, to_ms, monitor=False):
+            class _PcapWrapper_pypcap:  # noqa: F811
+                def __init__(self, device, snaplen, promisc,
+                             to_ms, monitor=False):
                     try:
-                        self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1, timeout_ms=to_ms, rfmon=monitor)
+                        self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1, timeout_ms=to_ms, rfmon=monitor)  # noqa: E501
                     except TypeError:
                         try:
                             if monitor:
-                                warning("Your pypcap version is too old to support monitor mode, Please use pypcap 1.2.1+ !")
-                            self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1, timeout_ms=to_ms)
+                                warning("Your pypcap version is too old to support monitor mode, Please use pypcap 1.2.1+ !")  # noqa: E501
+                            self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1, timeout_ms=to_ms)  # noqa: E501
                         except TypeError:
-                            # Even older pypcap versions do not support the timeout_ms argument
-                            self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1)
+                            # Even older pypcap versions do not support the timeout_ms argument  # noqa: E501
+                            self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1)  # noqa: E501
 
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
@@ -291,12 +303,12 @@ if conf.use_pcap:
                 def setnonblock(self, i):
                     self.pcap.setnonblock(i)
 
-                def __del__(self):
+                def close(self):
                     try:
                         self.pcap.close()
                     except AttributeError:
-                        warning("__del__: don't know how to close the file "
-                                "descriptor. Bugs ahead! Please use python-pypcap 1.2.1+")
+                        warning("close(): don't know how to close the file "
+                                "descriptor. Bugs ahead! Please use python-pypcap 1.2.1+")  # noqa: E501
 
                 def send(self, x):
                     self.pcap.sendpacket(x)
@@ -308,10 +320,10 @@ if conf.use_pcap:
                     ts, pkt = c
                     return ts, raw(pkt)
                 __next__ = next
-            open_pcap = lambda *args, **kargs: _PcapWrapper_pypcap(*args, **kargs)
+            open_pcap = lambda *args, **kargs: _PcapWrapper_pypcap(*args, **kargs)  # noqa: E501
         elif _PCAP_MODE == "libpcap":  # python-libpcap
             class _PcapWrapper_libpcap:
-                def __init__(self, device, snaplen, promisc, to_ms, monitor=False):
+                def __init__(self, device, snaplen, promisc, to_ms, monitor=False):  # noqa: E501
                     self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
                     if monitor:
                         self.pcap = pcap.pcap_create(device, self.errbuf)
@@ -321,9 +333,9 @@ if conf.use_pcap:
                         if pcap.pcap_set_rfmon(self.pcap, 1) != 0:
                             warning("Could not set monitor mode")
                         if pcap.pcap_activate(self.pcap) != 0:
-                            raise OSError("Could not activate the pcap handler")
+                            raise OSError("Could not activate the pcap handler")  # noqa: E501
                     else:
-                        self.pcap = pcap.open_live(device, snaplen, promisc, to_ms)
+                        self.pcap = pcap.open_live(device, snaplen, promisc, to_ms)  # noqa: E501
 
                 def setfilter(self, filter):
                     self.pcap.setfilter(filter, 0, 0)
@@ -345,15 +357,27 @@ if conf.use_pcap:
                 def send(self, x):
                     pcap.pcap_sendpacket(self.pcap, x, len(x))
 
-                def __del__(self):
+                def close(self):
                     pcap.close(self.pcap)
-            open_pcap = lambda *args, **kargs: _PcapWrapper_libpcap(*args, **kargs)
+            open_pcap = lambda *args, **kargs: _PcapWrapper_libpcap(*args, **kargs)  # noqa: E501
         elif _PCAP_MODE == "pcapy":  # python-pcapy
             class _PcapWrapper_pcapy:
-                def __init__(self, device, snaplen, promisc, to_ms, monitor=False):
+                def __init__(self, device, snaplen, promisc, to_ms, monitor=False):  # noqa: E501
                     if monitor:
-                        warning("pcapy does not support monitor mode ! Use pypcap or libpcap instead !")
-                    self.pcap = pcap.open_live(device, snaplen, promisc, to_ms)
+                        try:
+                            self.pcap = pcap.create(device)
+                            self.pcap.set_snaplen(snaplen)
+                            self.pcap.set_promisc(promisc)
+                            self.pcap.set_timeout(to_ms)
+                            if self.pcap.set_rfmon(1) != 0:
+                                warning("Could not set monitor mode")
+                            if self.pcap.activate() != 0:
+                                raise OSError("Could not activate the pcap handler")   # noqa: E501
+                        except AttributeError:
+                            raise OSError("Your pcapy version does not support"
+                                          "monitor mode ! Use pcapy 0.11.4+")
+                    else:
+                        self.pcap = pcap.open_live(device, snaplen, promisc, to_ms)   # noqa: E501
 
                 def next(self):
                     try:
@@ -384,13 +408,13 @@ if conf.use_pcap:
                 def send(self, x):
                     self.pcap.sendpacket(x)
 
-                def __del__(self):
+                def close(self):
                     try:
                         self.pcap.close()
                     except AttributeError:
-                        warning("__del__: don't know how to close the file "
+                        warning("close(): don't know how to close the file "
                                 "descriptor. Bugs ahead! Please update pcapy!")
-            open_pcap = lambda *args, **kargs: _PcapWrapper_pcapy(*args, **kargs)
+            open_pcap = lambda *args, **kargs: _PcapWrapper_pcapy(*args, **kargs)  # noqa: E501
 
 
 #################
@@ -401,7 +425,7 @@ if conf.use_pcap or conf.use_winpcapy:
     class L2pcapListenSocket(_L2pcapdnetSocket):
         desc = "read packets at layer 2 using libpcap"
 
-        def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, monitor=None):
+        def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, monitor=None):  # noqa: E501
             self.type = type
             self.outs = None
             self.iface = iface
@@ -411,37 +435,32 @@ if conf.use_pcap or conf.use_winpcapy:
                 promisc = conf.sniff_promisc
             self.promisc = promisc
             # Note: Timeout with Winpcap/Npcap
-            #   The 4th argument of open_pcap corresponds to timeout. In an ideal world, we would
+            #   The 4th argument of open_pcap corresponds to timeout. In an ideal world, we would  # noqa: E501
             # set it to 0 ==> blocking pcap_next_ex.
-            #   However, the way it is handled is very poor, and result in a jerky packet stream.
-            # To fix this, we set 100 and the implementation under windows is slightly different, as
-            # everything is always recieved as non-blocking
-            self.ins = open_pcap(iface, MTU, self.promisc, 100, monitor=monitor)
+            #   However, the way it is handled is very poor, and result in a jerky packet stream.  # noqa: E501
+            # To fix this, we set 100 and the implementation under windows is slightly different, as  # noqa: E501
+            # everything is always received as non-blocking
+            self.ins = open_pcap(iface, MTU, self.promisc, 100, monitor=monitor)  # noqa: E501
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
-            except:
+            except Exception:
                 pass
-            if type == ETH_P_ALL:  # Do not apply any filter if Ethernet type is given
+            if type == ETH_P_ALL:  # Do not apply any filter if Ethernet type is given  # noqa: E501
                 if conf.except_filter:
                     if filter:
-                        filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                        filter = "(%s) and not (%s)" % (filter, conf.except_filter)  # noqa: E501
                     else:
                         filter = "not (%s)" % conf.except_filter
                 if filter:
                     self.ins.setfilter(filter)
 
-        def close(self):
-            self.ins.close()
-
         def send(self, x):
-            raise Scapy_Exception("Can't send anything with L2pcapListenSocket")
-
-    conf.L2listen = L2pcapListenSocket
+            raise Scapy_Exception("Can't send anything with L2pcapListenSocket")  # noqa: E501
 
     class L2pcapSocket(_L2pcapdnetSocket):
         desc = "read/write packets at layer 2 using only libpcap"
 
-        def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0,
+        def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0,  # noqa: E501
                      monitor=None):
             if iface is None:
                 iface = conf.iface
@@ -450,27 +469,27 @@ if conf.use_pcap or conf.use_winpcapy:
                 promisc = 0
             self.promisc = promisc
             # See L2pcapListenSocket for infos about this line
-            self.ins = open_pcap(iface, MTU, self.promisc, 100, monitor=monitor)
+            self.ins = open_pcap(iface, MTU, self.promisc, 100, monitor=monitor)  # noqa: E501
             # We need to have a different interface open because of an
             # access violation in Npcap that occurs in multi-threading
             # (see https://github.com/nmap/nmap/issues/982)
             self.outs = open_pcap(iface, MTU, self.promisc, 100)
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
-            except:
+            except Exception:
                 pass
             if nofilter:
-                if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap
+                if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap  # noqa: E501
                     filter = "ether proto %i" % type
                 else:
                     filter = None
             else:
                 if conf.except_filter:
                     if filter:
-                        filter = "(%s) and not (%s)" % (filter, conf.except_filter)
+                        filter = "(%s) and not (%s)" % (filter, conf.except_filter)  # noqa: E501
                     else:
                         filter = "not (%s)" % conf.except_filter
-                if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap
+                if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap  # noqa: E501
                     if filter:
                         filter = "(ether proto %i) and (%s)" % (type, filter)
                     else:
@@ -486,15 +505,17 @@ if conf.use_pcap or conf.use_winpcapy:
 
         def close(self):
             if not self.closed:
-                if hasattr(self, "ins"):
+                ins = getattr(self, "ins", None)
+                out = getattr(self, "out", None)
+                if ins:
                     self.ins.close()
-                if hasattr(self, "outs"):
+                if out and out != ins:
                     self.outs.close()
             self.closed = True
 
     class L3pcapSocket(L2pcapSocket):
         desc = "read/write packets at layer 3 using only libpcap"
-        # def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
+        # def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):  # noqa: E501
         #    L2pcapSocket.__init__(self, iface, type, filter, nofilter)
 
         def recv(self, x=MTU):
@@ -505,19 +526,18 @@ if conf.use_pcap or conf.use_winpcapy:
                 return
 
         def send(self, x):
-            # Makes send detects when it should add Loopback(), Dot11... instead of Ether()
+            # Makes send detects when it should add Loopback(), Dot11... instead of Ether()  # noqa: E501
             ll = self.ins.datalink()
             if ll in conf.l2types:
                 cls = conf.l2types[ll]
             else:
                 cls = conf.default_l2
-                warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s", self.iface, ll, cls.name)
+                warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s", self.iface, ll, cls.name)  # noqa: E501
             sx = raw(cls() / x)
             if hasattr(x, "sent_time"):
                 x.sent_time = time.time()
             return self.ins.send(sx)
-    conf.L2socket = L2pcapSocket
-    conf.L3socket = L3pcapSocket
+
 
 ##########
 #  DNET  #
@@ -526,7 +546,7 @@ if conf.use_pcap or conf.use_winpcapy:
 # DEPRECATED
 
 if conf.use_dnet:
-    warning("dnet usage with scapy is deprecated, and will be removed in a future version.")
+    warning("dnet usage with scapy is deprecated, and will be removed in a future version.")  # noqa: E501
     try:
         try:
             # First try to import dnet
@@ -543,13 +563,13 @@ if conf.use_dnet:
                 "dummy"
                 return (0, b"\0\0\0\0\0\0")
 
-            def get_if_raw_addr(iff):
+            def get_if_raw_addr(iff):  # noqa: F811
                 "dummy"
                 return b"\0\0\0\0"
 
             def get_if_list():
                 "dummy"
-                return []
+                return {}
         else:
             raise
     else:
@@ -562,9 +582,9 @@ if conf.use_dnet:
 
             # Retrieve interface information
             try:
-                l = dnet.intf().get(iff)
-                link_addr = l["link_addr"]
-            except:
+                tmp_intf = dnet.intf().get(iff)
+                link_addr = tmp_intf["link_addr"]
+            except Exception:
                 raise Scapy_Exception("Error in attempting to get hw address"
                                       " for interface [%s]" % iff)
 
@@ -577,12 +597,12 @@ if conf.use_dnet:
                 mac = mac2str(str(link_addr))
 
                 # Adjust the link type
-                if l["type"] == 6:  # INTF_TYPE_ETH from dnet
+                if tmp_intf["type"] == 6:  # INTF_TYPE_ETH from dnet
                     return (ARPHDR_ETHER, mac)
 
-                return (l["type"], mac)
+                return (tmp_intf["type"], mac)
 
-        def get_if_raw_addr(ifname):
+        def get_if_raw_addr(ifname):  # noqa: F811
             i = dnet.intf()
             try:
                 return i.get(ifname)["addr"].data
@@ -591,6 +611,7 @@ if conf.use_dnet:
                 return b"\0\0\0\0"
 
         def get_if_list():
+            """Returns all dnet names"""
             return [i.get("name", None) for i in dnet.intf()]
 
         def get_working_if():
@@ -600,7 +621,7 @@ if conf.use_dnet:
 
             try:
                 intf = next(if_iter)
-            except StopIteration:
+            except (StopIteration, RuntimeError):
                 return scapy.consts.LOOPBACK_NAME
 
             return intf.get("name", scapy.consts.LOOPBACK_NAME)

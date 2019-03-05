@@ -25,9 +25,12 @@
 RFC 7252 - Constrained Application Protocol (CoAP) layer for Scapy
 """
 
-from scapy.fields import *
+import struct
+
+from scapy.fields import BitEnumField, BitField, BitFieldLenField, \
+    ByteEnumField, ShortField, StrField, StrLenField
 from scapy.layers.inet import UDP
-from scapy.packet import *
+from scapy.packet import Packet, bind_layers
 from scapy.error import warning
 from scapy.compat import raw
 
@@ -132,7 +135,7 @@ def _get_opt_val_size(pkt):
 class _CoAPOpt(Packet):
     fields_desc = [BitField("delta", 0, 4),
                    BitField("len", 0, 4),
-                   StrLenField("delta_ext", None, length_from=_get_delta_ext_size),
+                   StrLenField("delta_ext", None, length_from=_get_delta_ext_size),  # noqa: E501
                    StrLenField("len_ext", None, length_from=_get_len_ext_size),
                    StrLenField("opt_val", None, length_from=_get_opt_val_size)]
 
@@ -161,7 +164,7 @@ class _CoAPOptsField(StrField):
     islist = 1
 
     def i2h(self, pkt, x):
-        return [(coap_options[0][o[0]], o[1]) if o[0] in coap_options[0] else o for o in x]
+        return [(coap_options[0][o[0]], o[1]) if o[0] in coap_options[0] else o for o in x]  # noqa: E501
 
     # consume only the coap layer from the wire string
     def getfield(self, pkt, s):
@@ -226,7 +229,7 @@ class CoAP(Packet):
     name = "CoAP"
 
     fields_desc = [BitField("ver", 1, 2),
-                   BitEnumField("type", 0, 2, {0: "CON", 1: "NON", 2: "ACK", 3: "RST"}),
+                   BitEnumField("type", 0, 2, {0: "CON", 1: "NON", 2: "ACK", 3: "RST"}),  # noqa: E501
                    BitFieldLenField("tkl", None, 4, length_of='token'),
                    ByteEnumField("code", 0, coap_codes),
                    ShortField("msg_id", 0),

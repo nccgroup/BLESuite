@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -12,13 +12,17 @@ Logging subsystem and basic exception class.
 #############################
 
 
+import logging
+import traceback
+import time
+
+
 class Scapy_Exception(Exception):
     pass
 
 
-import logging
-import traceback
-import time
+class ScapyInvalidPlatformException(Scapy_Exception):
+    pass
 
 
 class ScapyFreqFilter(logging.Filter):
@@ -56,8 +60,8 @@ log_scapy = logging.getLogger("scapy")
 log_scapy.addHandler(logging.NullHandler())
 log_runtime = logging.getLogger("scapy.runtime")          # logs at runtime
 log_runtime.addFilter(ScapyFreqFilter())
-log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions
-log_loading = logging.getLogger("scapy.loading")          # logs when loading Scapy
+log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions  # noqa: E501
+log_loading = logging.getLogger("scapy.loading")          # logs when loading Scapy  # noqa: E501
 
 
 def warning(x, *args, **kargs):

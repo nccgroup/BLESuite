@@ -30,10 +30,11 @@
 
 import scapy.modules.six as six
 from scapy.packet import Packet, bind_layers, bind_top_down
-from scapy.fields import *
+from scapy.fields import BitEnumField, BitField, BitFieldLenField, \
+    ByteEnumField, ConditionalField, PacketListField, StrLenField
 from scapy.layers.inet import UDP
 from scapy.config import conf
-from scapy.contrib.sdnv import *
+from scapy.contrib.sdnv import SDNV2, SDNV2FieldLenField
 
 # LTP https://tools.ietf.org/html/rfc5326
 
@@ -82,7 +83,7 @@ def ltp_bind_payload(cls, lambd):
     params:
      - cls: the class to bind
      - lambd: lambda that will be called to check
-              wether or not the cls should be used
+              whether or not the cls should be used
 
               lambda pkt: ...
     """
@@ -125,9 +126,9 @@ class LTP(Packet):
         BitEnumField('flags', 0, 4, _ltp_flag_vals),
         SDNV2("SessionOriginator", 0),
         SDNV2("SessionNumber", 0),
-        BitFieldLenField("HeaderExtensionCount", None, 4, count_of="HeaderExtensions"),
-        BitFieldLenField("TrailerExtensionCount", None, 4, count_of="TrailerExtensions"),
-        PacketListField("HeaderExtensions", [], LTPex, count_from=lambda x: x.HeaderExtensionCount),
+        BitFieldLenField("HeaderExtensionCount", None, 4, count_of="HeaderExtensions"),  # noqa: E501
+        BitFieldLenField("TrailerExtensionCount", None, 4, count_of="TrailerExtensions"),  # noqa: E501
+        PacketListField("HeaderExtensions", [], LTPex, count_from=lambda x: x.HeaderExtensionCount),  # noqa: E501
         #
         # LTP segments containing data have a DATA header
         #
@@ -135,10 +136,10 @@ class LTP(Packet):
                          lambda x: x.flags in _ltp_data_segment),
         ConditionalField(SDNV2("DATA_PayloadOffset", 0),
                          lambda x: x.flags in _ltp_data_segment),
-        ConditionalField(SDNV2FieldLenField("DATA_PayloadLength", None, length_of="LTP_Payload"),
+        ConditionalField(SDNV2FieldLenField("DATA_PayloadLength", None, length_of="LTP_Payload"),  # noqa: E501
                          lambda x: x.flags in _ltp_data_segment),
         #
-        # LTP segments that are checkpoints will have a checkpoint serial number and report serial number.
+        # LTP segments that are checkpoints will have a checkpoint serial number and report serial number.  # noqa: E501
         #
         ConditionalField(SDNV2("CheckpointSerialNo", 0),
                          lambda x: x.flags in _ltp_checkpoint_segment),
@@ -147,8 +148,8 @@ class LTP(Packet):
         #
         # Then comes the actual payload for data carrying segments.
         #
-        ConditionalField(PacketListField("LTP_Payload", None, next_cls_cb=_ltp_guess_payload,
-                                         length_from=lambda x: x.DATA_PayloadLength),
+        ConditionalField(PacketListField("LTP_Payload", None, next_cls_cb=_ltp_guess_payload,  # noqa: E501
+                                         length_from=lambda x: x.DATA_PayloadLength),  # noqa: E501
                          lambda x: x.flags in _ltp_data_segment),
         #
         # Report ACKS acknowledge a particular report serial number.
@@ -166,11 +167,11 @@ class LTP(Packet):
                          lambda x: x.flags == 8),
         ConditionalField(SDNV2("ReportLowerBound", 0),
                          lambda x: x.flags == 8),
-        ConditionalField(SDNV2FieldLenField("ReportReceptionClaimCount", None, count_of="ReportReceptionClaims"),
+        ConditionalField(SDNV2FieldLenField("ReportReceptionClaimCount", None, count_of="ReportReceptionClaims"),  # noqa: E501
                          lambda x: x.flags == 8),
-        ConditionalField(PacketListField("ReportReceptionClaims", [], LTPReceptionClaim,
-                                         count_from=lambda x: x.ReportReceptionClaimCount),
-                         lambda x: x.flags == 8 and (not x.ReportReceptionClaimCount or x.ReportReceptionClaimCount > 0)),
+        ConditionalField(PacketListField("ReportReceptionClaims", [], LTPReceptionClaim,  # noqa: E501
+                                         count_from=lambda x: x.ReportReceptionClaimCount),  # noqa: E501
+                         lambda x: x.flags == 8 and (not x.ReportReceptionClaimCount or x.ReportReceptionClaimCount > 0)),  # noqa: E501
         #
         # Cancellation Requests
         #
@@ -190,7 +191,7 @@ class LTP(Packet):
         #
         # Finally, trailing extensions
         #
-        PacketListField("TrailerExtensions", [], LTPex, count_from=lambda x: x.TrailerExtensionCount)
+        PacketListField("TrailerExtensions", [], LTPex, count_from=lambda x: x.TrailerExtensionCount)  # noqa: E501
     ]
 
     def mysummary(self):

@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -36,7 +36,7 @@ class ColorTable:
     def __getattr__(self, attr):
         return self.colors.get(attr, [""])[0]
 
-    def ansi_to_pygments(self, x):  # Transform ansi encoded text to Pygments text
+    def ansi_to_pygments(self, x):  # Transform ansi encoded text to Pygments text  # noqa: E501
         inv_map = {v[0]: v[1] for k, v in self.colors.items()}
         for k, v in inv_map.items():
             x = x.replace(k, " " + v)
@@ -82,6 +82,9 @@ class AnsiColorTheme(ColorTheme):
         s = "style_%s" % attr
         if s in self.__class__.__dict__:
             before = getattr(self, s)
+            after = self.style_normal
+        elif not isinstance(self, BlackAndWhite) and attr in Color.colors:
+            before = Color.colors[attr][0]
             after = self.style_normal
         else:
             before = after = ""
@@ -249,7 +252,7 @@ class LatexTheme2(FormatTheme):
     style_field_name = r"@`@textcolor@[@blue@]@@[@%s@]@"
     style_field_value = r"@`@textcolor@[@purple@]@@[@%s@]@"
     style_emph_field_name = r"@`@textcolor@[@blue@]@@[@@`@underline@[@%s@]@@]@"
-    style_emph_field_value = r"@`@textcolor@[@purple@]@@[@@`@underline@[@%s@]@@]@"
+    style_emph_field_value = r"@`@textcolor@[@purple@]@@[@@`@underline@[@%s@]@@]@"  # noqa: E501
     style_packetlist_name = r"@`@textcolor@[@red@]@@[@@`@bfseries@[@@]@%s@]@"
     style_packetlist_proto = r"@`@textcolor@[@blue@]@@[@%s@]@"
     style_packetlist_value = r"@`@textcolor@[@purple@]@@[@%s@]@"
@@ -305,7 +308,7 @@ def apply_ipython_style(shell):
     the conf.color_theme scapy theme."""
     try:
         from IPython.terminal.prompts import Prompts, Token
-    except:
+    except Exception:
         from scapy.error import log_loading
         log_loading.warning(
             "IPython too old. Shell color won't be handled."
@@ -322,7 +325,7 @@ def apply_ipython_style(shell):
             def out_prompt_tokens(self):
                 return [(Token.OutPrompt, ''), ]
         shell.prompts_class = ClassicPrompt  # Apply classic prompt style
-    shell.highlighting_style_overrides = {  # Register and apply scapy color style
+    shell.highlighting_style_overrides = {  # Register and apply scapy color style  # noqa: E501
         Token.Prompt: Color.ansi_to_pygments(conf.color_theme.style_prompt),
     }
     try:

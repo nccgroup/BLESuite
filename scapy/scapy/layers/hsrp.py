@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -29,11 +29,12 @@
 # Cleanup code
 
 """
-HSRP (Hot Standby Router Protocol): proprietary redundancy protocol for Cisco routers.
+HSRP (Hot Standby Router Protocol): proprietary redundancy protocol for Cisco routers.  # noqa: E501
 """
 
-from scapy.fields import *
-from scapy.packet import *
+from scapy.fields import ByteEnumField, ByteField, IPField, SourceIPField, \
+    StrFixedLenField, XIntField, XShortField
+from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.layers.inet import DestIPField, UDP
 from scapy.layers.inet6 import DestIP6Field
 
@@ -42,8 +43,8 @@ class HSRP(Packet):
     name = "HSRP"
     fields_desc = [
         ByteField("version", 0),
-        ByteEnumField("opcode", 0, {0: "Hello", 1: "Coup", 2: "Resign", 3: "Advertise"}),
-        ByteEnumField("state", 16, {0: "Initial", 1: "Learn", 2: "Listen", 4: "Speak", 8: "Standby", 16: "Active"}),
+        ByteEnumField("opcode", 0, {0: "Hello", 1: "Coup", 2: "Resign", 3: "Advertise"}),  # noqa: E501
+        ByteEnumField("state", 16, {0: "Initial", 1: "Learn", 2: "Listen", 4: "Speak", 8: "Standby", 16: "Active"}),  # noqa: E501
         ByteField("hellotime", 3),
         ByteField("holdtime", 10),
         ByteField("priority", 120),
@@ -73,8 +74,8 @@ class HSRPmd5(Packet):
 
     def post_build(self, p, pay):
         if self.len is None and pay:
-            l = len(pay)
-            p = p[:1] + hex(l)[30:] + p[30:]
+            tmp_len = len(pay)
+            p = p[:1] + hex(tmp_len)[30:] + p[30:]
         return p
 
 

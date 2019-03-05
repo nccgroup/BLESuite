@@ -21,22 +21,28 @@ from __future__ import print_function
 import socket
 
 from scapy.pton_ntop import inet_pton
-from scapy.utils import randstring
+from scapy.utils import randstring, repr_hex
 from scapy.automaton import ATMT
 from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.basefields import _tls_version, _tls_version_options
 from scapy.layers.tls.session import tlsSession
-from scapy.layers.tls.extensions import (TLS_Ext_SupportedGroups,
-                                         TLS_Ext_SupportedVersions,
-                                         TLS_Ext_SignatureAlgorithms,
-                                         TLS_Ext_ServerName, ServerName)
-from scapy.layers.tls.handshake import *
-from scapy.layers.tls.handshake_sslv2 import *
-from scapy.layers.tls.keyexchange_tls13 import (TLS_Ext_KeyShare_CH,
-                                                KeyShareEntry)
-from scapy.layers.tls.record import (TLS, TLSAlert, TLSChangeCipherSpec,
-                                     TLSApplicationData)
+from scapy.layers.tls.extensions import TLS_Ext_SupportedGroups, \
+    TLS_Ext_SupportedVersions, TLS_Ext_SignatureAlgorithms
+from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
+    TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, \
+    TLSEncryptedExtensions, TLSFinished, TLSServerHello, TLSServerHelloDone, \
+    TLSServerKeyExchange, TLS13Certificate, TLS13ServerHello
+from scapy.layers.tls.handshake_sslv2 import SSLv2ClientHello, \
+    SSLv2ServerHello, SSLv2ClientMasterKey, SSLv2ServerVerify, \
+    SSLv2ClientFinished, SSLv2ServerFinished, SSLv2ClientCertificate, \
+    SSLv2RequestCertificate
+from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_CH, \
+    KeyShareEntry
+from scapy.layers.tls.record import TLSAlert, TLSChangeCipherSpec, \
+    TLSApplicationData
 from scapy.modules import six
+from scapy.packet import Raw
+from scapy.compat import bytes_encode
 
 
 class TLSClientAutomaton(_TLSAutomaton):
@@ -53,7 +59,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     _'client_hello' may hold a TLSClientHello or SSLv2ClientHello to be sent
     to the server. This is particularly useful for extensions tweaking.
     _'version' is a quicker way to advertise a protocol version ("sslv2",
-    "tls1", "tls12", etc.) It may be overriden by the previous 'client_hello'.
+    "tls1", "tls12", etc.) It may be overridden by the previous 'client_hello'.
     _'data' is a list of raw data to be sent to the server once the handshake
     has been completed. Both 'stop_server' and 'quit' will work this way.
     """
@@ -74,7 +80,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                 inet_pton(socket.AF_INET6, server)
             else:
                 inet_pton(socket.AF_INET, server)
-        except:
+        except Exception:
             self.remote_name = socket.getfqdn(server)
             if self.remote_name != server:
                 tmp = socket.getaddrinfo(self.remote_name, dport)
@@ -101,9 +107,9 @@ class TLSClientAutomaton(_TLSAutomaton):
         if isinstance(data, bytes):
             self.data_to_send = [data]
         elif isinstance(data, six.string_types):
-            self.data_to_send = [raw(data)]
+            self.data_to_send = [bytes_encode(data)]
         elif isinstance(data, list):
-            self.data_to_send = list(raw(d) for d in reversed(data))
+            self.data_to_send = list(bytes_encode(d) for d in reversed(data))
         else:
             self.data_to_send = []
 
@@ -444,7 +450,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         Special characters are handled so that it becomes a valid HTTP request.
         """
         if not self.data_to_send:
-            data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()
+            data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()  # noqa: E501
         else:
             data = self.data_to_send.pop()
         if data == b"quit":
@@ -511,8 +517,8 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.add_msg(TLSAlert(level=1, descr=0))
         try:
             self.flush_records()
-        except:
-            self.vprint("Could not send termination Alert, maybe the server stopped?")
+        except Exception:
+            self.vprint("Could not send termination Alert, maybe the server stopped?")  # noqa: E501
         raise self.FINAL()
 
     #                          SSLv2 handshake                                #
@@ -732,7 +738,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.condition(SSLv2_WAITING_CLIENTDATA, prio=1)
     def sslv2_add_ClientData(self):
         if not self.data_to_send:
-            data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()
+            data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()  # noqa: E501
         else:
             data = self.data_to_send.pop()
             self.vprint("> Read from list: %s" % data)
@@ -800,8 +806,8 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.add_msg(Raw('goodbye'))
         try:
             self.flush_records()
-        except:
-            self.vprint("Could not send our goodbye. The server probably stopped.")
+        except Exception:
+            self.vprint("Could not send our goodbye. The server probably stopped.")  # noqa: E501
         self.socket.close()
         raise self.FINAL()
 
@@ -823,7 +829,7 @@ class TLSClientAutomaton(_TLSAutomaton):
             # sn = ServerName(servername="<put server name here>")
             ext = [TLS_Ext_SupportedGroups(groups=["secp256r1"]),
                    # TLS_Ext_ServerName(servernames=[sn]),
-                   TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=23)]),
+                   TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=23)]),  # noqa: E501
                    TLS_Ext_SupportedVersions(versions=["TLS 1.3-d18"]),
                    TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsapss",
                                                          "sha256+rsa"])]

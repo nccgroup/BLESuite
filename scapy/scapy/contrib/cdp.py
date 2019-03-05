@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-# scapy.contrib.description = Cisco Discovery Protocol
+# scapy.contrib.description = Cisco Discovery Protocol (CDP)
 # scapy.contrib.status = loads
 
 #############################################################################
@@ -24,11 +24,17 @@
 #############################################################################
 
 from __future__ import absolute_import
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet6 import *
-from scapy.compat import orb
+import struct
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, FieldLenField, FlagsField, \
+    IP6Field, IPField, PacketListField, ShortField, StrLenField, \
+    X3BytesField, XByteField, XShortEnumField, XShortField
+from scapy.layers.inet import checksum
+from scapy.layers.l2 import SNAP
+from scapy.compat import orb, chb
 from scapy.modules.six.moves import range
+from scapy.config import conf
 
 
 #####################################################################
@@ -179,12 +185,12 @@ class CDPMsgAddr(CDPMsgGeneric):
     fields_desc = [XShortEnumField("type", 0x0002, _cdp_tlv_types),
                    ShortField("len", None),
                    FieldLenField("naddr", None, "addr", "!I"),
-                   PacketListField("addr", [], _CDPGuessAddrRecord, count_from=lambda x:x.naddr)]
+                   PacketListField("addr", [], _CDPGuessAddrRecord, count_from=lambda x:x.naddr)]  # noqa: E501
 
     def post_build(self, pkt, pay):
         if self.len is None:
-            l = 8 + len(self.addr) * 9
-            pkt = pkt[:2] + struct.pack("!H", l) + pkt[4:]
+            tmp_len = 8 + len(self.addr) * 9
+            pkt = pkt[:2] + struct.pack("!H", tmp_len) + pkt[4:]
         p = pkt + pay
         return p
 
@@ -193,7 +199,7 @@ class CDPMsgPortID(CDPMsgGeneric):
     name = "Port ID"
     fields_desc = [XShortEnumField("type", 0x0003, _cdp_tlv_types),
                    FieldLenField("len", None, "iface", "!H"),
-                   StrLenField("iface", "Port 1", length_from=lambda x:x.len - 4)]
+                   StrLenField("iface", "Port 1", length_from=lambda x:x.len - 4)]  # noqa: E501
 
 
 _cdp_capabilities = ["Router",
@@ -282,7 +288,7 @@ class CDPMsgVoIPVLANQuery(CDPMsgGeneric):
                                  adjust=lambda pkt, x: x + 7),
                    XByteField("unknown1", 0),
                    ShortField("vlan", 1),
-                   # TLV length (len) - 2 (type) - 2 (len) - 1 (unknown1) - 2 (vlan)
+                   # TLV length (len) - 2 (type) - 2 (len) - 1 (unknown1) - 2 (vlan)  # noqa: E501
                    StrLenField("unknown2", "", length_from=lambda p: p.len - 7,
                                max_length=65528)]
 

@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -9,8 +9,8 @@ MGCP (Media Gateway Control Protocol)
 [RFC 2805]
 """
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers, bind_bottom_up
+from scapy.fields import StrFixedLenField, StrStopField
 from scapy.layers.inet import UDP
 
 

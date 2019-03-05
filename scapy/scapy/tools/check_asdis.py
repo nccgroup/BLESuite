@@ -47,17 +47,17 @@ def main(argv):
 
     from scapy.config import conf
     from scapy.utils import RawPcapReader, RawPcapWriter, hexdiff
-    from scapy.layers import all
+    from scapy.layers import all  # noqa: F401
 
     pcap = RawPcapReader(PCAP_IN)
     pcap_out = None
     if PCAP_OUT:
-        pcap_out = RawPcapWriter(PCAP_OUT, append=APPEND, gz=COMPRESS, linktype=pcap.linktype)
+        pcap_out = RawPcapWriter(PCAP_OUT, append=APPEND, gz=COMPRESS, linktype=pcap.linktype)  # noqa: E501
         pcap_out._write_header(None)
 
     LLcls = conf.l2types.get(pcap.linktype)
     if LLcls is None:
-        print(" Unknown link type [%i]. Can't test anything!" % pcap.linktype, file=sys.stderr)
+        print(" Unknown link type [%i]. Can't test anything!" % pcap.linktype, file=sys.stderr)  # noqa: E501
         raise SystemExit
 
     i = -1
@@ -71,7 +71,7 @@ def main(argv):
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            print("Dissection error on packet %i" % i)
+            print("Dissection error on packet %i: %s" % (i, e))
             failed += 1
         else:
             if p1 == p2:
@@ -89,8 +89,8 @@ def main(argv):
             pcap_out.write(p1)
     i += 1
     correct = i - differ - failed
-    print("%i total packets. %i ok, %i differed, %i failed. %.2f%% correct." % (i, correct, differ,
-                                                                                failed, i and 100.0 * (correct) / i))
+    print("%i total packets. %i ok, %i differed, %i failed. %.2f%% correct." % (i, correct, differ,  # noqa: E501
+                                                                                failed, i and 100.0 * (correct) / i))  # noqa: E501
 
 
 if __name__ == "__main__":

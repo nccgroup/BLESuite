@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -10,19 +10,172 @@ DNS: Domain Name System.
 from __future__ import absolute_import
 import socket
 import struct
+import time
 
 from scapy.config import conf
-from scapy.packet import *
-from scapy.fields import *
-from scapy.compat import *
-from scapy.ansmachine import *
+from scapy.packet import Packet, bind_layers, NoPayload
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
+    ConditionalField, Field, FieldLenField, FlagsField, IntField, \
+    PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
+    StrLenField
+from scapy.compat import orb, raw, chb, bytes_encode
+from scapy.ansmachine import AnsweringMachine
 from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field
-from scapy.error import warning
-from functools import reduce
+from scapy.error import warning, Scapy_Exception
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+from scapy.pton_ntop import inet_ntop, inet_pton
+
+
+def dns_get_str(s, p, pkt=None, _internal=False):
+    """This function decompresses a string s, from the character p.
+    params:
+     - s: the string to decompress
+     - p: start index of the string
+     - pkt: (optional) an InheritOriginDNSStrPacket packet
+
+    returns: (decoded_string, end_index, left_string)
+    """
+    # The _internal parameter is reserved for scapy. It indicates
+    # that the string provided is the full dns packet, and thus
+    # will be the same than pkt._orig_str. The "Cannot decompress"
+    # error will not be prompted if True.
+    max_length = len(s)
+    name = b""  # The result = the extracted name
+    burned = 0  # The "burned" data, used to determine the remaining bytes
+    q = None  # Will contain the index after the pointer, to be returned
+    processed_pointers = [p]  # Used to check for decompression loops
+    while True:
+        if abs(p) >= max_length:
+            warning("DNS RR prematured end (ofs=%i, len=%i)" % (p, len(s)))
+            break
+        cur = orb(s[p])  # current value of the string at p
+        p += 1  # p is now pointing to the value of the pointer
+        burned += 1
+        if cur & 0xc0:  # Label pointer
+            if q is None:
+                # p will follow the pointer, whereas q will not
+                q = p + 1
+            if p >= max_length:
+                warning("DNS incomplete jump token at (ofs=%i)" % p)
+                break
+            p = ((cur & ~0xc0) << 8) + orb(s[p]) - 12  # Follow the pointer
+            burned += 1
+            if p in processed_pointers:
+                warning("DNS decompression loop detected")
+                break
+            if pkt and hasattr(pkt, "_orig_s") and pkt._orig_s:
+                name += dns_get_str(pkt._orig_s, p, None, _internal=True)[0]
+                if burned == max_length:
+                    break
+            elif not _internal:
+                raise Scapy_Exception("DNS message can't be compressed" +
+                                      "at this point!")
+            processed_pointers.append(p)
+            continue
+        elif cur > 0:  # Label
+            name += s[p:p + cur] + b"."
+            p += cur
+            burned += cur
+        else:
+            break
+    if q is not None:
+        # Return the real end index (not the one we followed)
+        p = q
+    # name, end_index, remaining
+    return name, p, s[burned:]
+
+
+def DNSgetstr(*args, **kwargs):
+    """Legacy function. Deprecated"""
+    raise DeprecationWarning("DNSgetstr deprecated. Use dns_get_str instead")
+    return dns_get_str(*args, **kwargs)
+
+
+def dns_compress(pkt):
+    """This function compresses a DNS packet according to compression rules.
+    """
+    if DNS not in pkt:
+        raise Scapy_Exception("Can only compress DNS layers")
+    pkt = pkt.copy()
+    dns_pkt = pkt.getlayer(DNS)
+    build_pkt = raw(dns_pkt)
+
+    def field_gen(dns_pkt):
+        """Iterates through all DNS strings that can be compressed"""
+        for lay in [dns_pkt.qd, dns_pkt.an, dns_pkt.ns, dns_pkt.ar]:
+            if lay is None:
+                continue
+            current = lay
+            while not isinstance(current, NoPayload):
+                if isinstance(current, InheritOriginDNSStrPacket):
+                    for field in current.fields_desc:
+                        if isinstance(field, DNSStrField) or \
+                           (isinstance(field, RDataField) and
+                           current.type in [2, 5, 12]):
+                            # Get the associated data and store it accordingly  # noqa: E501
+                            dat = current.getfieldval(field.name)
+                            yield current, field.name, dat
+                current = current.payload
+
+    def possible_shortens(dat):
+        """Iterates through all possible compression parts in a DNS string"""
+        yield dat
+        for x in range(1, dat.count(b".")):
+            yield dat.split(b".", x)[x]
+    data = {}
+    burned_data = 0
+    dummy_dns = DNSStrField("", "")  # Used for its i2m method
+    for current, name, dat in field_gen(dns_pkt):
+        for part in possible_shortens(dat):
+            # Encode the data
+            encoded = dummy_dns.i2m(None, part)
+            if part not in data:
+                # We have no occurrence of such data, let's store it as a
+                # possible pointer for future strings.
+                # We get the index of the encoded data
+                index = build_pkt.index(encoded)
+                index -= burned_data
+                # The following is used to build correctly the pointer
+                fb_index = ((index >> 8) | 0xc0)
+                sb_index = index - (256 * (fb_index - 0xc0))
+                pointer = chb(fb_index) + chb(sb_index)
+                data[part] = [(current, name, pointer)]
+            else:
+                # This string already exists, let's mark the current field
+                # with it, so that it gets compressed
+                data[part].append((current, name))
+                # calculate spared space
+                burned_data += len(encoded) - 2
+                break
+    # Apply compression rules
+    for ck in data:
+        # compression_key is a DNS string
+        replacements = data[ck]
+        # replacements is the list of all tuples (layer, field name)
+        # where this string was found
+        replace_pointer = replacements.pop(0)[2]
+        # replace_pointer is the packed pointer that should replace
+        # those strings. Note that pop remove it from the list
+        for rep in replacements:
+            # setfieldval edits the value of the field in the layer
+            val = rep[0].getfieldval(rep[1])
+            assert val.endswith(ck)
+            kept_string = dummy_dns.i2m(None, val[:-len(ck)])[:-1]
+            new_val = kept_string + replace_pointer
+            rep[0].setfieldval(rep[1], new_val)
+            try:
+                del(rep[0].rdlen)
+            except AttributeError:
+                pass
+    # End of the compression algorithm
+    # Destroy the previous DNS layer if needed
+    if not isinstance(pkt, DNS) and pkt.getlayer(DNS).underlayer:
+        pkt.getlayer(DNS).underlayer.remove_payload()
+        return pkt / dns_pkt
+    return dns_pkt
 
 
 class InheritOriginDNSStrPacket(Packet):
@@ -41,38 +194,24 @@ class DNSStrField(StrField):
         return x
 
     def i2m(self, pkt, x):
-        if x == b".":
+        if any((orb(y) >= 0xc0) for y in x):
+            # The value has already been processed. Do not process it again
+            return x
+
+        if not x or x == b".":
             return b"\x00"
 
         # Truncate chunks that cannot be encoded (more than 63 bytes..)
         x = b"".join(chb(len(y)) + y for y in (k[:63] for k in x.split(b".")))
-        if orb(x[-1]) != 0:
+        if orb(x[-1]) != 0 and (orb(x[-2]) < 0xc0):
             x += b"\x00"
         return x
 
     def getfield(self, pkt, s):
-        n = b""
-        if orb(s[0]) == 0:
-            return s[1:], b"."
-        while True:
-            l = orb(s[0])
-            s = s[1:]
-            if not l:
-                break
-            if l & 0xc0:
-                p = ((l & ~0xc0) << 8) + orb(s[0]) - 12
-                if hasattr(pkt, "_orig_s") and pkt._orig_s:
-                    ns = DNSgetstr(pkt._orig_s, p)[0]
-                    n += ns
-                    s = s[1:]
-                    if not s:
-                        break
-                else:
-                    raise Scapy_Exception("DNS message can't be compressed at this point!")
-            else:
-                n += s[:l] + b"."
-                s = s[l:]
-        return s, n
+        # Decode the compressed DNS message
+        decoded, index, left = dns_get_str(s, 0, pkt)
+        # returns (left, decoded)
+        return left, decoded
 
 
 class DNSRRCountField(ShortField):
@@ -101,38 +240,6 @@ class DNSRRCountField(ShortField):
         return x
 
 
-def DNSgetstr(s, p):
-    name = b""
-    q = 0
-    jpath = [p]
-    while True:
-        if p >= len(s):
-            warning("DNS RR prematured end (ofs=%i, len=%i)" % (p, len(s)))
-            break
-        l = orb(s[p])  # current value of the string at p
-        p += 1
-        if l & 0xc0:  # Pointer label
-            if not q:
-                q = p + 1
-            if p >= len(s):
-                warning("DNS incomplete jump token at (ofs=%i)" % p)
-                break
-            p = ((l & ~0xc0) << 8) + orb(s[p]) - 12
-            if p in jpath:
-                warning("DNS decompression loop detected")
-                break
-            jpath.append(p)
-            continue
-        elif l > 0:  # Label
-            name += s[p:p + l] + b"."
-            p += l
-            continue
-        break
-    if q:
-        p = q
-    return name, p
-
-
 class DNSRRField(StrField):
     __slots__ = ["countfld", "passon"]
     holds_packets = 1
@@ -145,7 +252,7 @@ class DNSRRField(StrField):
     def i2m(self, pkt, x):
         if x is None:
             return b""
-        return raw(x)
+        return bytes_encode(x)
 
     def decodeRR(self, name, s, p):
         ret = s[p:p + 10]
@@ -153,16 +260,15 @@ class DNSRRField(StrField):
         p += 10
         rr = DNSRR(b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)
         if type in [2, 3, 4, 5]:
-            rr.rdata = DNSgetstr(s, p)[0]
+            rr.rdata = dns_get_str(s, p, _internal=True)[0]
             del(rr.rdlen)
         elif type in DNSRR_DISPATCHER:
-            rr = DNSRR_DISPATCHER[type](b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)
+            rr = DNSRR_DISPATCHER[type](b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)  # noqa: E501
         else:
             del(rr.rdlen)
+        rr.rrname = name
 
         p += rdlen
-
-        rr.rrname = name
         return rr, p
 
     def getfield(self, pkt, s):
@@ -177,7 +283,7 @@ class DNSRRField(StrField):
             return s, b""
         while c:
             c -= 1
-            name, p = DNSgetstr(s, p)
+            name, p, _ = dns_get_str(s, p, _internal=True)
             rr, p = self.decodeRR(name, s, p)
             if ret is None:
                 ret = rr
@@ -199,30 +305,30 @@ class DNSQRField(DNSRRField):
 
 
 class RDataField(StrLenField):
+    islist = 1
+
     def m2i(self, pkt, s):
         family = None
         if pkt.type == 1:  # A
             family = socket.AF_INET
         elif pkt.type in [2, 5, 12]:  # NS, CNAME, PTR
-            l = orb(s[0])
-            if l & 0xc0 and hasattr(pkt, "_orig_s") and pkt._orig_s:  # Compression detected
-                p = ((l & ~0xc0) << 8) + orb(s[1]) - 12
-                s = DNSgetstr(pkt._orig_s, p)[0]
-            else:  # No compression / Cannot decompress
-                if hasattr(pkt, "_orig_s") and pkt._orig_s:
-                    s = DNSgetstr(pkt._orig_s, pkt._orig_p)[0]
+            if hasattr(pkt, "_orig_s") and pkt._orig_s:
+                if orb(s[0]) & 0xc0:
+                    s = dns_get_str(s, 0, pkt)[0]
                 else:
-                    s = DNSgetstr(s, 0)[0]
+                    s = dns_get_str(pkt._orig_s, pkt._orig_p, _internal=True)[0]  # noqa: E501
+            else:
+                s = dns_get_str(s, 0)[0]
         elif pkt.type == 16:  # TXT
-            ret_s = b""
+            ret_s = list()
             tmp_s = s
             # RDATA contains a list of strings, each are prepended with
             # a byte containing the size of the following string.
             while tmp_s:
                 tmp_len = orb(tmp_s[0]) + 1
                 if tmp_len > len(tmp_s):
-                    warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
-                ret_s += tmp_s[1:tmp_len]
+                    warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))  # noqa: E501
+                ret_s.append(tmp_s[1:tmp_len])
                 tmp_s = tmp_s[tmp_len:]
             s = ret_s
         elif pkt.type == 28:  # AAAA
@@ -236,22 +342,20 @@ class RDataField(StrLenField):
             if s:
                 s = inet_pton(socket.AF_INET, s)
         elif pkt.type in [2, 3, 4, 5, 12]:  # NS, MD, MF, CNAME, PTR
-            s = b"".join(chb(len(x)) + x for x in s.split(b'.'))
-            if orb(s[-1]):
-                s += b"\x00"
+            s = DNSStrField("", "").i2m(None, s)
         elif pkt.type == 16:  # TXT
-            if s:
-                s = raw(s)
-                ret_s = b""
-                # The initial string must be splitted into a list of strings
+            ret_s = b""
+            for text in s:
+                text = bytes_encode(text)
+                # The initial string must be split into a list of strings
                 # prepended with theirs sizes.
-                while len(s) >= 255:
-                    ret_s += b"\xff" + s[:255]
-                    s = s[255:]
+                while len(text) >= 255:
+                    ret_s += b"\xff" + text[:255]
+                    text = text[255:]
                 # The remaining string is less than 255 bytes long
-                if len(s):
-                    ret_s += struct.pack("!B", len(s)) + s
-                s = ret_s
+                if len(text):
+                    ret_s += struct.pack("!B", len(text)) + text
+            s = ret_s
         elif pkt.type == 28:  # AAAA
             if s:
                 s = inet_pton(socket.AF_INET6, s)
@@ -305,10 +409,10 @@ class DNS(Packet):
     ]
 
     def answers(self, other):
-        return (isinstance(other, DNS)
-                and self.id == other.id
-                and self.qr == 1
-                and other.qr == 0)
+        return (isinstance(other, DNS) and
+                self.id == other.id and
+                self.qr == 1 and
+                other.qr == 0)
 
     def mysummary(self):
         type = ["Qry", "Ans"][self.qr]
@@ -328,19 +432,23 @@ class DNS(Packet):
             pkt = struct.pack("!H", len(pkt) - 2) + pkt[2:]
         return pkt + pay
 
+    def compress(self):
+        """Return the compressed DNS packet (using `dns_compress()`"""
+        return dns_compress(self)
+
 
 # https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
 dnstypes = {
     0: "ANY",
     1: "A", 2: "NS", 3: "MD", 4: "MF", 5: "CNAME", 6: "SOA", 7: "MB", 8: "MG",
     9: "MR", 10: "NULL", 11: "WKS", 12: "PTR", 13: "HINFO", 14: "MINFO",
-    15: "MX", 16: "TXT", 17: "RP", 18: "AFSDB", 19: "X25", 20: "ISDN", 21: "RT",
+    15: "MX", 16: "TXT", 17: "RP", 18: "AFSDB", 19: "X25", 20: "ISDN", 21: "RT",  # noqa: E501
     22: "NSAP", 23: "NSAP-PTR", 24: "SIG", 25: "KEY", 26: "PX", 27: "GPOS",
     28: "AAAA", 29: "LOC", 30: "NXT", 31: "EID", 32: "NIMLOC", 33: "SRV",
     34: "ATMA", 35: "NAPTR", 36: "KX", 37: "CERT", 38: "A6", 39: "DNAME",
     40: "SINK", 41: "OPT", 42: "APL", 43: "DS", 44: "SSHFP", 45: "IPSECKEY",
     46: "RRSIG", 47: "NSEC", 48: "DNSKEY", 49: "DHCID", 50: "NSEC3",
-    51: "NSEC3PARAM", 52: "TLSA", 53: "SMIMEA", 55: "HIP", 56: "NINFO", 57: "RKEY",
+    51: "NSEC3PARAM", 52: "TLSA", 53: "SMIMEA", 55: "HIP", 56: "NINFO", 57: "RKEY",  # noqa: E501
     58: "TALINK", 59: "CDS", 60: "CDNSKEY", 61: "OPENPGPKEY", 62: "CSYNC",
     99: "SPF", 100: "UINFO", 101: "UID", 102: "GID", 103: "UNSPEC", 104: "NID",
     105: "L32", 106: "L64", 107: "LP", 108: "EUI48", 109: "EUI64",
@@ -365,9 +473,9 @@ class DNSQR(InheritOriginDNSStrPacket):
 
 class EDNS0TLV(Packet):
     name = "DNS EDNS0 TLV"
-    fields_desc = [ShortEnumField("optcode", 0, {0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Reserved", 5: "PING"}),
+    fields_desc = [ShortEnumField("optcode", 0, {0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Reserved", 5: "PING"}),  # noqa: E501
                    FieldLenField("optlen", None, "optdata", fmt="H"),
-                   StrLenField("optdata", "", length_from=lambda pkt: pkt.optlen)]
+                   StrLenField("optdata", "", length_from=lambda pkt: pkt.optlen)]  # noqa: E501
 
     def extract_padding(self, p):
         return "", p
@@ -384,22 +492,22 @@ class DNSRROPT(InheritOriginDNSStrPacket):
                    BitEnumField("z", 32768, 16, {32768: "D0"}),
                    # D0 means DNSSEC OK from RFC 3225
                    FieldLenField("rdlen", None, length_of="rdata", fmt="H"),
-                   PacketListField("rdata", [], EDNS0TLV, length_from=lambda pkt: pkt.rdlen)]
+                   PacketListField("rdata", [], EDNS0TLV, length_from=lambda pkt: pkt.rdlen)]  # noqa: E501
 
 # RFC 4034 - Resource Records for the DNS Security Extensions
 
 
-# 09/2013 from http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-dnssecalgotypes = {0: "Reserved", 1: "RSA/MD5", 2: "Diffie-Hellman", 3: "DSA/SHA-1",
+# 09/2013 from http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml  # noqa: E501
+dnssecalgotypes = {0: "Reserved", 1: "RSA/MD5", 2: "Diffie-Hellman", 3: "DSA/SHA-1",  # noqa: E501
                    4: "Reserved", 5: "RSA/SHA-1", 6: "DSA-NSEC3-SHA1",
                    7: "RSASHA1-NSEC3-SHA1", 8: "RSA/SHA-256", 9: "Reserved",
                    10: "RSA/SHA-512", 11: "Reserved", 12: "GOST R 34.10-2001",
-                   13: "ECDSA Curve P-256 with SHA-256", 14: "ECDSA Curve P-384 with SHA-384",
-                   252: "Reserved for Indirect Keys", 253: "Private algorithms - domain name",
+                   13: "ECDSA Curve P-256 with SHA-256", 14: "ECDSA Curve P-384 with SHA-384",  # noqa: E501
+                   252: "Reserved for Indirect Keys", 253: "Private algorithms - domain name",  # noqa: E501
                    254: "Private algorithms - OID", 255: "Reserved"}
 
 # 09/2013 from http://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml
-dnssecdigesttypes = {0: "Reserved", 1: "SHA-1", 2: "SHA-256", 3: "GOST R 34.11-94", 4: "SHA-384"}
+dnssecdigesttypes = {0: "Reserved", 1: "SHA-1", 2: "SHA-256", 3: "GOST R 34.11-94", 4: "SHA-384"}  # noqa: E501
 
 
 class TimeField(IntField):
@@ -528,13 +636,14 @@ class _DNSRRdummy(InheritOriginDNSStrPacket):
 
     def post_build(self, pkt, pay):
         if self.rdlen is not None:
-            return pkt
+            return pkt + pay
 
         lrrname = len(self.fields_desc[0].i2m("", self.getfieldval("rrname")))
-        l = len(pkt) - lrrname - 10
-        pkt = pkt[:lrrname + 8] + struct.pack("!H", l) + pkt[lrrname + 8 + 2:]
+        tmp_len = len(pkt) - lrrname - 10
+        tmp_pkt = pkt[:lrrname + 8]
+        pkt = struct.pack("!H", tmp_len) + pkt[lrrname + 8 + 2:]
 
-        return pkt
+        return tmp_pkt + pkt + pay
 
 
 class DNSRRSOA(_DNSRRdummy):
@@ -639,8 +748,8 @@ class DNSRRNSEC3(_DNSRRdummy):
                    ShortField("iterations", 0),
                    FieldLenField("saltlength", 0, fmt="!B", length_of="salt"),
                    StrLenField("salt", "", length_from=lambda x: x.saltlength),
-                   FieldLenField("hashlength", 0, fmt="!B", length_of="nexthashedownername"),
-                   StrLenField("nexthashedownername", "", length_from=lambda x: x.hashlength),
+                   FieldLenField("hashlength", 0, fmt="!B", length_of="nexthashedownername"),  # noqa: E501
+                   StrLenField("nexthashedownername", "", length_from=lambda x: x.hashlength),  # noqa: E501
                    RRlistField("typebitmaps", "")
                    ]
 
@@ -656,13 +765,13 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
                    ByteField("flags", 0),
                    ShortField("iterations", 0),
                    FieldLenField("saltlength", 0, fmt="!B", length_of="salt"),
-                   StrLenField("salt", "", length_from=lambda pkt: pkt.saltlength)
+                   StrLenField("salt", "", length_from=lambda pkt: pkt.saltlength)  # noqa: E501
                    ]
 
 # RFC 2782 - A DNS RR for specifying the location of services (DNS SRV)
 
 
-class DNSRRSRV(InheritOriginDNSStrPacket):
+class DNSRRSRV(_DNSRRdummy):
     name = "DNS SRV Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 51, dnstypes),
@@ -728,12 +837,12 @@ class DNSRRTSIG(_DNSRRdummy):
                    DNSStrField("algo_name", "hmac-sha1"),
                    TimeSignedField("time_signed", 0),
                    ShortField("fudge", 0),
-                   FieldLenField("mac_len", 20, fmt="!H", length_of="mac_data"),
-                   StrLenField("mac_data", "", length_from=lambda pkt: pkt.mac_len),
+                   FieldLenField("mac_len", 20, fmt="!H", length_of="mac_data"),  # noqa: E501
+                   StrLenField("mac_data", "", length_from=lambda pkt: pkt.mac_len),  # noqa: E501
                    ShortField("original_id", 0),
                    ShortField("error", 0),
-                   FieldLenField("other_len", 0, fmt="!H", length_of="other_data"),
-                   StrLenField("other_data", "", length_from=lambda pkt: pkt.other_len)
+                   FieldLenField("other_len", 0, fmt="!H", length_of="other_data"),  # noqa: E501
+                   StrLenField("other_data", "", length_from=lambda pkt: pkt.other_len)  # noqa: E501
                    ]
 
 
@@ -788,7 +897,7 @@ RFC2136
 """
     zone = name[name.find(".") + 1:]
     r = sr1(IP(dst=nameserver) / UDP() / DNS(opcode=5,
-                                             qd=[DNSQR(qname=zone, qtype="SOA")],
+                                             qd=[DNSQR(qname=zone, qtype="SOA")],  # noqa: E501
                                              ns=[DNSRR(rrname=name, type="A",
                                                        ttl=ttl, rdata=rdata)]),
             verbose=0, timeout=5)
@@ -808,9 +917,9 @@ RFC2136
 """
     zone = name[name.find(".") + 1:]
     r = sr1(IP(dst=nameserver) / UDP() / DNS(opcode=5,
-                                             qd=[DNSQR(qname=zone, qtype="SOA")],
+                                             qd=[DNSQR(qname=zone, qtype="SOA")],  # noqa: E501
                                              ns=[DNSRR(rrname=name, type=type,
-                                                       rclass="ANY", ttl=0, rdata="")]),
+                                                       rclass="ANY", ttl=0, rdata="")]),  # noqa: E501
             verbose=0, timeout=5)
     if r and r.haslayer(DNS):
         return r.getlayer(DNS).rcode

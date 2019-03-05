@@ -1,10 +1,10 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
 """
-Classes related to the EAP protocol.
+Extensible Authentication Protocol (EAP)
 """
 
 from __future__ import absolute_import
@@ -12,10 +12,10 @@ from __future__ import print_function
 
 import struct
 
-from scapy.fields import BitField, ByteField, XByteField, ByteEnumField,\
+from scapy.fields import BitField, ByteField, XByteField,\
     ShortField, IntField, XIntField, ByteEnumField, StrLenField, XStrField,\
-    XStrLenField, XStrFixedLenField, LenField, FieldLenField, PacketField,\
-    PacketListField, ConditionalField, PadField
+    XStrLenField, XStrFixedLenField, LenField, FieldLenField, FieldListField,\
+    PacketField, PacketListField, ConditionalField, PadField
 from scapy.packet import Packet, Padding, bind_layers
 from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
 from scapy.utils import issubtype
@@ -78,8 +78,8 @@ class EAPOL(Packet):
     ASF = 4
 
     def extract_padding(self, s):
-        l = self.len
-        return s[:l], s[l:]
+        tmp_len = self.len
+        return s[:tmp_len], s[tmp_len:]
 
     def hashret(self):
         return chb(self.type) + self.payload.hashret()
@@ -199,14 +199,19 @@ class EAP(Packet):
         ConditionalField(ByteEnumField("type", 0, eap_types),
                          lambda pkt:pkt.code not in [
                              EAP.SUCCESS, EAP.FAILURE]),
-        ConditionalField(ByteEnumField("desired_auth_type", 0, eap_types),
-                         lambda pkt:pkt.code == EAP.RESPONSE and pkt.type == 3),
+        ConditionalField(FieldListField(
+                            "desired_auth_types",
+                            [],
+                            ByteEnumField("auth_type", 0, eap_types),
+                            length_from=lambda pkt: pkt.len - 4
+                         ),
+                         lambda pkt:pkt.code == EAP.RESPONSE and pkt.type == 3),  # noqa: E501
         ConditionalField(
             StrLenField("identity", '', length_from=lambda pkt: pkt.len - 5),
-            lambda pkt: pkt.code == EAP.RESPONSE and hasattr(pkt, 'type') and pkt.type == 1),
+            lambda pkt: pkt.code == EAP.RESPONSE and hasattr(pkt, 'type') and pkt.type == 1),  # noqa: E501
         ConditionalField(
             StrLenField("message", '', length_from=lambda pkt: pkt.len - 5),
-            lambda pkt: pkt.code == EAP.REQUEST and hasattr(pkt, 'type') and pkt.type == 1)
+            lambda pkt: pkt.code == EAP.REQUEST and hasattr(pkt, 'type') and pkt.type == 1)  # noqa: E501
     ]
 
     #########################################################################
@@ -275,8 +280,9 @@ class EAP(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) + len(pay)
-            p = p[:2] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[4:]
+            tmp_len = len(p) + len(pay)
+            tmp_p = p[:2] + chb((tmp_len >> 8) & 0xff) + chb(tmp_len & 0xff)
+            p = tmp_p + p[4:]
         return p + pay
 
     def guess_payload_class(self, _):
@@ -297,7 +303,7 @@ class EAP_MD5(EAP):
         ByteEnumField("type", 4, eap_types),
         FieldLenField("value_size", None, fmt="B", length_of="value"),
         XStrLenField("value", '', length_from=lambda p: p.value_size),
-        XStrLenField("optional_name", '', length_from=lambda p: 0 if p.len is None or p.value_size is None else (p.len - p.value_size - 6))
+        XStrLenField("optional_name", '', length_from=lambda p: 0 if p.len is None or p.value_size is None else (p.len - p.value_size - 6))  # noqa: E501
     ]
 
 
@@ -317,8 +323,8 @@ class EAP_TLS(EAP):
         BitField('M', 0, 1),
         BitField('S', 0, 1),
         BitField('reserved', 0, 5),
-        ConditionalField(IntField('tls_message_len', 0), lambda pkt: pkt.L == 1),
-        XStrLenField('tls_data', '', length_from=lambda pkt: 0 if pkt.len is None else pkt.len - (6 + 4 * pkt.L))
+        ConditionalField(IntField('tls_message_len', 0), lambda pkt: pkt.L == 1),  # noqa: E501
+        XStrLenField('tls_data', '', length_from=lambda pkt: 0 if pkt.len is None else pkt.len - (6 + 4 * pkt.L))  # noqa: E501
     ]
 
 
@@ -341,7 +347,7 @@ class EAP_TTLS(EAP):
         BitField("reserved", 0, 2),
         BitField("version", 0, 3),
         ConditionalField(IntField("message_len", 0), lambda pkt: pkt.L == 1),
-        XStrLenField("data", "", length_from=lambda pkt: 0 if pkt.len is None else pkt.len - (6 + 4 * pkt.L))
+        XStrLenField("data", "", length_from=lambda pkt: 0 if pkt.len is None else pkt.len - (6 + 4 * pkt.L))  # noqa: E501
     ]
 
 
@@ -362,8 +368,8 @@ class EAP_PEAP(EAP):
         BitField("S", 0, 1),
         BitField("reserved", 0, 3),
         BitField("version", 1, 2),
-        ConditionalField(IntField("tls_message_len", 0), lambda pkt: pkt.L == 1),
-        XStrLenField("tls_data", "", length_from=lambda pkt: 0 if pkt.len is None else pkt.len - (6 + 4 * pkt.L))
+        ConditionalField(IntField("tls_message_len", 0), lambda pkt: pkt.L == 1),  # noqa: E501
+        XStrLenField("tls_data", "", length_from=lambda pkt: 0 if pkt.len is None else pkt.len - (6 + 4 * pkt.L))  # noqa: E501
     ]
 
 
@@ -386,7 +392,7 @@ class EAP_FAST(EAP):
         BitField('reserved', 0, 2),
         BitField('version', 0, 3),
         ConditionalField(IntField('message_len', 0), lambda pkt: pkt.L == 1),
-        XStrLenField('data', '', length_from=lambda pkt: 0 if pkt.len is None else pkt.len - (6 + 4 * pkt.L))
+        XStrLenField('data', '', length_from=lambda pkt: 0 if pkt.len is None else pkt.len - (6 + 4 * pkt.L))  # noqa: E501
     ]
 
 
@@ -404,9 +410,9 @@ class LEAP(EAP):
         ByteEnumField("type", 17, eap_types),
         ByteField('version', 1),
         XByteField('unused', 0),
-        FieldLenField("count", None, "challenge_response", "B", adjust=lambda p, x: len(p.challenge_response)),
-        XStrLenField("challenge_response", "", length_from=lambda p: 0 or p.count),
-        StrLenField("username", "", length_from=lambda p: p.len - (8 + (0 or p.count)))
+        FieldLenField("count", None, "challenge_response", "B", adjust=lambda p, x: len(p.challenge_response)),  # noqa: E501
+        XStrLenField("challenge_response", "", length_from=lambda p: 0 or p.count),  # noqa: E501
+        StrLenField("username", "", length_from=lambda p: p.len - (8 + (0 or p.count)))  # noqa: E501
     ]
 
 
@@ -530,7 +536,7 @@ class MKABasicParamSet(Packet):
 
 class MKAPeerListTuple(Packet):
     """
-    Live / Potential Peer List parameter sets tuples (802.1X-2010, section 11.11).
+    Live / Potential Peer List parameter sets tuples (802.1X-2010, section 11.11).  # noqa: E501
     """
 
     name = "Peer List Tuple"

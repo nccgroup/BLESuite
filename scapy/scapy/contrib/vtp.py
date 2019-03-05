@@ -39,7 +39,7 @@
         - Join messages
         - RE MD5 hash calculation
         - Have a closer look at 8 byte padding in summary adv.
-            "debug sw-vlan vtp packets" sais the TLV length is invalid,
+            "debug sw-vlan vtp packets" says the TLV length is invalid,
             when I change the values
             b'\x00\x00\x00\x01\x06\x01\x00\x02'
                 * \x00\x00 ?
@@ -54,9 +54,12 @@
         http://www.cisco.com/en/US/tech/tk389/tk689/technologies_tech_note09186a0080094c52.shtml
 """
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.l2 import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+    FieldLenField, IPField, PacketListField, ShortField, SignedIntField, \
+    StrFixedLenField, StrLenField, XIntField
+from scapy.layers.l2 import SNAP
+from scapy.config import conf
 
 _VTP_VLAN_TYPE = {
     1: 'Ethernet',
@@ -102,9 +105,9 @@ class VTPVlanInfo(Packet):
         ShortField("vlanid", 1),
         ShortField("mtu", 1500),
         XIntField("dot10index", None),
-        StrLenField("vlanname", "default", length_from=lambda pkt: 4 * ((pkt.vlannamelen + 3) / 4)),
+        StrLenField("vlanname", "default", length_from=lambda pkt: 4 * ((pkt.vlannamelen + 3) / 4)),  # noqa: E501
         ConditionalField(PacketListField("tlvlist", [], VTPVlanInfoTlv,
-                                         length_from=lambda pkt:pkt.len - 12 - (4 * ((pkt.vlannamelen + 3) / 4))),
+                                         length_from=lambda pkt:pkt.len - 12 - (4 * ((pkt.vlannamelen + 3) / 4))),  # noqa: E501
                          lambda pkt:pkt.type not in [1, 2])
     ]
 
@@ -112,13 +115,13 @@ class VTPVlanInfo(Packet):
         vlannamelen = 4 * ((len(self.vlanname) + 3) / 4)
 
         if self.len is None:
-            l = vlannamelen + 12
-            p = chr(l & 0xff) + p[1:]
+            tmp_len = vlannamelen + 12
+            p = chr(tmp_len & 0xff) + p[1:]
 
         # Pad vlan name with zeros if vlannamelen > len(vlanname)
-        l = vlannamelen - len(self.vlanname)
-        if l != 0:
-            p += b"\x00" * l
+        tmp_len = vlannamelen - len(self.vlanname)
+        if tmp_len != 0:
+            p += b"\x00" * tmp_len
 
         p += pay
 
@@ -141,7 +144,7 @@ class VTPTimeStampField(StrFixedLenField):
         StrFixedLenField.__init__(self, name, default, 12)
 
     def i2repr(self, pkt, x):
-        return "%s-%s-%s %s:%s:%s" % (x[:2], x[2:4], x[4:6], x[6:8], x[8:10], x[10:12])
+        return "%s-%s-%s %s:%s:%s" % (x[:2], x[2:4], x[4:6], x[6:8], x[8:10], x[10:12])  # noqa: E501
 
 
 class VTP(Packet):

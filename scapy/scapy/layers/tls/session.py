@@ -7,12 +7,11 @@
 TLS session handler.
 """
 
-import random
 import socket
 import struct
 
 from scapy.config import conf
-from scapy.compat import *
+from scapy.compat import raw
 import scapy.modules.six as six
 from scapy.error import log_runtime, warning
 from scapy.packet import Packet
@@ -22,7 +21,7 @@ from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 from scapy.layers.tls.crypto.prf import PRF
 
 # Note the following import may happen inside connState.__init__()
-# in order to avoid to avoid cyclical dependancies.
+# in order to avoid to avoid cyclical dependencies.
 # from scapy.layers.tls.crypto.suites import TLS_NULL_WITH_NULL_NULL
 
 
@@ -88,7 +87,7 @@ class connState(object):
         self.ciphersuite = ciphersuite(tls_version=tls_version)
 
         if not self.ciphersuite.usable:
-            warning("TLS ciphersuite not useable. Is the cryptography Python module installed ?")
+            warning("TLS ciphersuite not usable. Is the cryptography Python module installed ?")  # noqa: E501
             return
 
         self.compression = compression_alg()
@@ -166,7 +165,7 @@ class connState(object):
             cipher_secret = self.prf.postprocess_key_for_export(cipher_secret,
                                                                 client_random,
                                                                 server_random,
-                                                                self.connection_end,
+                                                                self.connection_end,  # noqa: E501
                                                                 self.row,
                                                                 reqLen)
         self.debug_repr("cipher_secret", cipher_secret)
@@ -419,7 +418,7 @@ class tlsSession(object):
         # The agreed-upon TLS version found in the ServerHello.
         self.tls_version = None
 
-        # These attributes should eventually be known to both sides (SSLv3-TLS 1.2).
+        # These attributes should eventually be known to both sides (SSLv3-TLS 1.2).  # noqa: E501
         self.client_random = None
         self.server_random = None
         self.pre_master_secret = None
@@ -555,7 +554,7 @@ class tlsSession(object):
                                             2 * self.pwcs.cipher.key_len)
         self.sslv2_key_material = km
         if conf.debug_tls:
-            log_runtime.debug("TLS: master secret: %s", repr_hex(self.master_secret))
+            log_runtime.debug("TLS: master secret: %s", repr_hex(self.master_secret))  # noqa: E501
             log_runtime.debug("TLS: key material: %s", repr_hex(km))
 
     def compute_sslv2_km_and_derive_keys(self):
@@ -808,7 +807,7 @@ class _GenericTLSSessionInheritance(Packet):
                  _underlayer=None, tls_session=None, **fields):
         try:
             setme = self.tls_session is None
-        except:
+        except Exception:
             setme = True
 
         if setme:
@@ -877,6 +876,7 @@ class _GenericTLSSessionInheritance(Packet):
         rcs_snap = s.rcs.snapshot()
         wcs_snap = s.wcs.snapshot()
         rpc_snap = self.raw_packet_cache
+        rpcf_snap = self.raw_packet_cache_fields
 
         s.wcs = self.rcs_snap_init
 
@@ -889,6 +889,7 @@ class _GenericTLSSessionInheritance(Packet):
         s.rcs = rcs_snap
         s.wcs = wcs_snap
         self.raw_packet_cache = rpc_snap
+        self.raw_packet_cache_fields = rpcf_snap
 
         return built_packet
     __str__ = __bytes__

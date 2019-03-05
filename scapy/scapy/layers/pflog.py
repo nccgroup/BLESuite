@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -7,13 +7,16 @@
 PFLog: OpenBSD PF packet filter logging.
 """
 
+import socket
+
 from scapy.data import DLT_PFLOG
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, IntField, SignedIntField, \
+    StrFixedLenField
 from scapy.layers.inet import IP
+from scapy.config import conf
 if conf.ipv6_enabled:
     from scapy.layers.inet6 import IPv6
-from scapy.config import conf
 
 
 class PFLog(Packet):
@@ -53,7 +56,7 @@ class PFLog(Packet):
                    StrFixedLenField("pad", b"\x00\x00\x00", 3)]
 
     def mysummary(self):
-        return self.sprintf("%PFLog.addrfamily% %PFLog.action% on %PFLog.iface% by rule %PFLog.rulenumber%")
+        return self.sprintf("%PFLog.addrfamily% %PFLog.action% on %PFLog.iface% by rule %PFLog.rulenumber%")  # noqa: E501
 
 
 bind_layers(PFLog, IP, addrfamily=socket.AF_INET)

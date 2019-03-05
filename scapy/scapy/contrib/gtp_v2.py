@@ -17,12 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = GTPv2
+# scapy.contrib.description = GPRS Tunneling Protocol v2 (GTPv2)
 # scapy.contrib.status = loads
 
-import logging
 import struct
-import time
 
 
 from scapy.compat import orb
@@ -30,8 +28,6 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, IntField, IPField, LongField, PacketField, \
     PacketListField, ShortEnumField, ShortField, StrFixedLenField, \
     StrLenField, ThreeBytesField, XBitField, XIntField, XShortField
-from scapy.layers.inet import IP, UDP
-from scapy.layers.inet6 import IP6Field
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.volatile import RandIP, RandShort
 
@@ -112,8 +108,8 @@ class GTPHeader(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.length is None:
-            l = len(p) - 8
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) - 8
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p
 
     def hashret(self):
@@ -464,7 +460,7 @@ PCO_PROTOCOL_TYPES = {
     0x000c: 'P-CSCF IPv4 Address Request',
     0x0010: 'IPv4 Link MTU Request',
     0x8021: 'IPCP',
-    0xc023: 'Password Authentification Protocol',
+    0xc023: 'Password Authentication Protocol',
     0xc223: 'Challenge Handshake Authentication Protocol',
 }
 
@@ -566,7 +562,7 @@ class PCO_IPCP(PCO_Option):
 
 
 class PCO_PPP_Auth(PCO_Option):
-    name = "PPP Password Authentification Protocol"
+    name = "PPP Password Authentication Protocol"
     fields_desc = [ByteField("Code", 0),
                    ByteField("Identifier", 0),
                    ShortField("length", 0),
@@ -586,14 +582,14 @@ class PCO_PPP_Auth(PCO_Option):
 
 
 class PCO_PasswordAuthentificationProtocol(PCO_Option):
-    name = "PCO Password Authentification Protocol"
+    name = "PCO Password Authentication Protocol"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
                    PacketField("PPP", None, PCO_PPP_Auth)]
 
 
 class PCO_PPP_Challenge(PCO_Option):
-    name = "PPP Password Authentification Protocol"
+    name = "PPP Password Authentication Protocol"
     fields_desc = [ByteField("Code", 0),
                    ByteField("Identifier", 0),
                    ShortField("length", 0),
@@ -604,12 +600,12 @@ class PCO_PPP_Challenge(PCO_Option):
                        lambda pkt: pkt.value_size),
                    ConditionalField(StrFixedLenField(
                        "name", "",
-                       length_from=lambda pkt: pkt.length - pkt.value_size - 5),
+                       length_from=lambda pkt: pkt.length - pkt.value_size - 5),  # noqa: E501
                        lambda pkt: pkt.length)]
 
 
 class PCO_ChallengeHandshakeAuthenticationProtocol(PCO_Option):
-    name = "PCO Password Authentification Protocol"
+    name = "PCO Password Authentication Protocol"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
                    PacketField("PPP", None, PCO_PPP_Challenge)]

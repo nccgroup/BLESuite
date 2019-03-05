@@ -14,7 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = IGMP/IGMPv2
+# flake8: noqa: E501
+
+# scapy.contrib.description = Internet Group Management Protocol v1/v2 (IGMP/IGMPv2)
 # scapy.contrib.status = loads
 
 from __future__ import print_function
@@ -117,32 +119,32 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
         adjusted to ensure correct formatting and assignment. The Ethernet header
         is then adjusted to the proper IGMP packet format.
         """
-        gaddr = self.gaddr if hasattr(self, "gaddr") and self.gaddr else "0.0.0.0"
+        gaddr = self.gaddr if hasattr(self, "gaddr") and self.gaddr else "0.0.0.0"  # noqa: E501
         underlayer = self.underlayer
-        if self.type not in [0x11, 0x30]:                               # General Rule 1
+        if self.type not in [0x11, 0x30]:                               # General Rule 1  # noqa: E501
             self.mrcode = 0
         if isinstance(underlayer, IP):
             if (self.type == 0x11):
                 if (gaddr == "0.0.0.0"):
-                    underlayer.dst = "224.0.0.1"                        # IP rule 1
+                    underlayer.dst = "224.0.0.1"                        # IP rule 1  # noqa: E501
                 elif isValidMCAddr(gaddr):
-                    underlayer.dst = gaddr                              # IP rule 3a
+                    underlayer.dst = gaddr                              # IP rule 3a  # noqa: E501
                 else:
                     warning("Invalid IGMP Group Address detected !")
                     return False
             elif ((self.type == 0x17) and isValidMCAddr(gaddr)):
-                underlayer.dst = "224.0.0.2"                           # IP rule 2
-            elif ((self.type == 0x12) or (self.type == 0x16)) and (isValidMCAddr(gaddr)):
-                underlayer.dst = gaddr                                 # IP rule 3b
+                underlayer.dst = "224.0.0.2"                           # IP rule 2  # noqa: E501
+            elif ((self.type == 0x12) or (self.type == 0x16)) and (isValidMCAddr(gaddr)):  # noqa: E501
+                underlayer.dst = gaddr                                 # IP rule 3b  # noqa: E501
             else:
                 warning("Invalid IGMP Type detected !")
                 return False
-            if not any(isinstance(x, IPOption_Router_Alert) for x in underlayer.options):
+            if not any(isinstance(x, IPOption_Router_Alert) for x in underlayer.options):  # noqa: E501
                 underlayer.options.append(IPOption_Router_Alert())
             _root = self.firstlayer()
             if _root.haslayer(Ether):
                 # Force recalculate Ether dst
-                _root[Ether].dst = getmacbyip(underlayer.dst)          # Ether rule 1
+                _root[Ether].dst = getmacbyip(underlayer.dst)          # Ether rule 1  # noqa: E501
         from scapy.contrib.igmpv3 import IGMPv3
         if isinstance(self, IGMPv3):
             self.encode_maxrespcode()
@@ -151,7 +153,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
     def mysummary(self):
         """Display a summary of the IGMP object."""
         if isinstance(self.underlayer, IP):
-            return self.underlayer.sprintf("IGMP: %IP.src% > %IP.dst% %IGMP.type% %IGMP.gaddr%")
+            return self.underlayer.sprintf("IGMP: %IP.src% > %IP.dst% %IGMP.type% %IGMP.gaddr%")  # noqa: E501
         else:
             return self.sprintf("IGMP %IGMP.type% %IGMP.gaddr%")
 

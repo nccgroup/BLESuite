@@ -14,7 +14,7 @@ from scapy.utils import strxor
 from scapy.layers.tls.crypto.hash import _tls_hash_algs
 from scapy.layers.tls.crypto.h_mac import _tls_hmac_algs
 from scapy.modules.six.moves import range
-from scapy.compat import *
+from scapy.compat import bytes_encode
 
 
 # Data expansion functions
@@ -38,12 +38,13 @@ def _tls_P_hash(secret, seed, req_len, hm):
     """
     hash_len = hm.hash_alg.hash_len
     n = (req_len + hash_len - 1) // hash_len
+    seed = bytes_encode(seed)
 
     res = b""
     a = hm(secret).digest(seed)  # A(1)
 
     while n > 0:
-        res += hm(secret).digest(a + raw(seed))
+        res += hm(secret).digest(a + seed)
         a = hm(secret).digest(a)
         n -= 1
 
@@ -104,8 +105,8 @@ def _ssl_PRF(secret, seed, req_len):
         warning("_ssl_PRF() is not expected to provide more than 416 bytes")
         return ""
 
-    d = [b"A", b"B", b"C", b"D", b"E", b"F", b"G", b"H", b"I", b"J", b"K", b"L",
-         b"M", b"N", b"O", b"P", b"Q", b"R", b"S", b"T", b"U", b"V", b"W", b"X",
+    d = [b"A", b"B", b"C", b"D", b"E", b"F", b"G", b"H", b"I", b"J", b"K", b"L",  # noqa: E501
+         b"M", b"N", b"O", b"P", b"Q", b"R", b"S", b"T", b"U", b"V", b"W", b"X",  # noqa: E501
          b"Y", b"Z"]
     res = b""
     hash_sha1 = _tls_hash_algs["SHA"]()
@@ -137,9 +138,9 @@ def _tls_PRF(secret, label, seed, req_len):
     - seed: the seed used by the expansion functions.
     - req_len: amount of keystream to be generated
     """
-    l = (len(secret) + 1) // 2
-    S1 = secret[:l]
-    S2 = secret[-l:]
+    tmp_len = (len(secret) + 1) // 2
+    S1 = secret[:tmp_len]
+    S2 = secret[-tmp_len:]
 
     a1 = _tls_P_MD5(S1, label + seed, req_len)
     a2 = _tls_P_SHA1(S2, label + seed, req_len)
@@ -267,7 +268,7 @@ class PRF(object):
                                              master_secret + sslv3_md5_pad1))
             sha1_hash = sha1.digest(master_secret + sslv3_sha1_pad2 +
                                     sha1.digest(handshake_msg + label +
-                                                master_secret + sslv3_sha1_pad1))
+                                                master_secret + sslv3_sha1_pad1))  # noqa: E501
             verify_data = md5_hash + sha1_hash
 
         else:

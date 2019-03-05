@@ -8,17 +8,17 @@ from __future__ import absolute_import
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
-from scapy.arch.common import get_if, get_bpf_pointer
+from scapy.arch.common import get_if, compile_filter
 from scapy.consts import LOOPBACK_NAME
 
-from scapy.arch.bpf.consts import *
+from scapy.arch.bpf.consts import BIOCSETF, SIOCGIFFLAGS, BIOCSETIF
 
 import os
 import socket
 import fcntl
 import struct
 
-from ctypes import cdll, cast, pointer, POINTER, Structure
+from ctypes import cdll, cast, pointer
 from ctypes import c_int, c_ulong, c_char_p
 from ctypes.util import find_library
 from scapy.modules.six.moves import range
@@ -34,7 +34,7 @@ LIBC.ioctl.restype = c_int
 # Addresses manipulation functions
 
 def get_if_raw_addr(ifname):
-    """Returns the IPv4 address configured on 'ifname', packed with inet_pton."""
+    """Returns the IPv4 address configured on 'ifname', packed with inet_pton."""  # noqa: E501
 
     # Get ifconfig output
     try:
@@ -44,13 +44,15 @@ def get_if_raw_addr(ifname):
         return b"\0\0\0\0"
 
     # Get IPv4 addresses
-    addresses = [l for l in fd if l.find("netmask") >= 0]
+    addresses = [l for l in fd if l.find("inet ") >= 0]
     if not addresses:
         warning("No IPv4 address found on %s !", ifname)
         return b"\0\0\0\0"
 
     # Pack the first address
     address = addresses[0].split(' ')[1]
+    if '/' in address:  # NetBSD 8.0
+        address = address.split("/")[0]
     return socket.inet_pton(socket.AF_INET, address)
 
 
@@ -98,22 +100,9 @@ def get_dev_bpf():
     raise Scapy_Exception("No /dev/bpf handle is available !")
 
 
-def attach_filter(fd, iface, bpf_filter_string):
+def attach_filter(fd, bpf_filter, iface):
     """Attach a BPF filter to the BPF file descriptor"""
-
-    # Retrieve the BPF byte code in decimal
-    command = "%s -i %s -ddd -s 1600 '%s'" % (conf.prog.tcpdump, iface, bpf_filter_string)
-    try:
-        f = os.popen(command)
-    except OSError as msg:
-        raise Scapy_Exception("Failed to execute tcpdump: (%s)" % msg)
-
-    # Convert the byte code to a BPF program structure
-    lines = f.readlines()
-    if lines == []:
-        raise Scapy_Exception("Got an empty BPF filter from tcpdump !")
-
-    bp = get_bpf_pointer(lines)
+    bp = compile_filter(bpf_filter, iface)
     # Assign the BPF program to the interface
     ret = LIBC.ioctl(c_int(fd), BIOCSETF, cast(pointer(bp), c_char_p))
     if ret < 0:
@@ -173,7 +162,7 @@ def get_working_ifaces():
 
             # Check if the interface can be used
             try:
-                fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x", ifname.encode()))
+                fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x", ifname.encode()))  # noqa: E501
                 interfaces.append((ifname, int(ifname[-1])))
             except IOError:
                 pass

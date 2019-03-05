@@ -28,11 +28,11 @@
 # scapy.contrib.description = Bundle Protocol (BP)
 # scapy.contrib.status = loads
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet import UDP
-from scapy.contrib.ltp import *
-from scapy.contrib.sdnv import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+    StrLenField
+from scapy.contrib.sdnv import SDNV2FieldLenField, SDNV2LenField, SDNV2
+from scapy.contrib.ltp import LTP, ltp_bind_payload
 
 
 class BP(Packet):
@@ -101,7 +101,7 @@ class BP(Packet):
 
         tmp += " ) len(%BlockLen%) "
         if self.DL == 0:
-            tmp += "CBHE: d[%DSO%,%DSSO%] s[%SSO%, %SSSO%] r[%RTSO%, %RTSSO%] c[%CSO%, %CSSO%] "
+            tmp += "CBHE: d[%DSO%,%DSSO%] s[%SSO%, %SSSO%] r[%RTSO%, %RTSSO%] c[%CSO%, %CSSO%] "  # noqa: E501
         else:
             tmp += "dl[%DL%] "
         tmp += "ct[%CT%] ctsn[%CTSN%] lt[%LT%] "
@@ -122,7 +122,7 @@ class BPBLOCK(Packet):
                    ]
 
     def mysummary(self):
-        return self.sprintf("BPBLOCK(%Type%) Flags: %ProcFlags% Len: %BlockLen%")
+        return self.sprintf("BPBLOCK(%Type%) Flags: %ProcFlags% Len: %BlockLen%")  # noqa: E501
 
 
 ltp_bind_payload(BP, lambda pkt: pkt.DATA_ClientServiceID == 1)

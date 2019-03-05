@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -8,9 +8,10 @@ import socket
 from scapy.modules.six.moves.queue import Queue, Empty
 from scapy.pipetool import Source, Drain, Sink
 from scapy.config import conf
-from scapy.compat import *
+from scapy.compat import raw
 from scapy.utils import PcapReader, PcapWriter
 from scapy.automaton import recv_error
+from scapy.consts import WINDOWS
 
 
 class SniffSource(Source):
@@ -116,7 +117,7 @@ class Inject3Sink(InjectSink):
 
 
 class WrpcapSink(Sink):
-    """Packets received on low input are written to PCA file
+    """Packets received on low input are written to PCAP file
      +----------+
   >>-|          |->>
      |          |
@@ -226,7 +227,7 @@ class TCPConnectPipe(Source):
 
 
 class TCPListenPipe(TCPConnectPipe):
-    """TCP listen on [addr:]port and use first connection as source and sink ; send peer address to high output
+    """TCP listen on [addr:]port and use first connection as source and sink ; send peer address to high output  # noqa: E501
      +------^------+
   >>-|    +-[peer]-|->>
      |   /         |
@@ -392,7 +393,7 @@ class TriggeredQueueingValve(Drain):
 
 
 class TriggeredSwitch(Drain):
-    """Let messages alternatively high or low, changing on trigger
+    r"""Let messages alternatively high or low, changing on trigger
      +------^------+
   >>-|-\    |    /-|->>
      |  [up/down]  |

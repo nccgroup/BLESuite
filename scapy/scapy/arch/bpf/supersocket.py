@@ -60,14 +60,14 @@ class _L2bpfSocket(SuperSocket):
 
         # Set the BPF buffer length
         try:
-            fcntl.ioctl(self.ins, BIOCSBLEN, struct.pack('I', BPF_BUFFER_LENGTH))
+            fcntl.ioctl(self.ins, BIOCSBLEN, struct.pack('I', BPF_BUFFER_LENGTH))  # noqa: E501
         except IOError:
             raise Scapy_Exception("BIOCSBLEN failed on /dev/bpf%i" %
                                   self.dev_bpf)
 
         # Assign the network interface to the BPF handle
         try:
-            fcntl.ioctl(self.ins, BIOCSETIF, struct.pack("16s16x", self.iface.encode()))
+            fcntl.ioctl(self.ins, BIOCSETIF, struct.pack("16s16x", self.iface.encode()))  # noqa: E501
         except IOError:
             raise Scapy_Exception("BIOCSETIF failed on %s" % self.iface)
         self.assigned_interface = self.iface
@@ -110,7 +110,7 @@ class _L2bpfSocket(SuperSocket):
                 else:
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
-                attach_filter(self.ins, self.iface, filter)
+                attach_filter(self.ins, filter, self.iface)
 
         # Set the guessed packet class
         self.guessed_cls = self.guess_cls()
@@ -171,7 +171,7 @@ class _L2bpfSocket(SuperSocket):
         try:
             fcntl.fcntl(self.ins, fcntl.F_SETFL, new_fd_flags)
             self.fd_flags = new_fd_flags
-        except:
+        except Exception:
             warning("Can't set flags on this file descriptor !")
 
     def get_stats(self):
@@ -214,11 +214,21 @@ class _L2bpfSocket(SuperSocket):
         """Dummy recv method"""
         raise Exception("Can't recv anything with %s" % self.__name__)
 
+    @staticmethod
+    def select(sockets, remain=None):
+        """This function is called during sendrecv() routine to select
+        the available sockets.
+        """
+        # sockets, None (means use the socket's recv() )
+        return bpf_select(sockets, remain), None
+
 
 class L2bpfListenSocket(_L2bpfSocket):
     """"Scapy L2 BPF Listen Super Socket"""
 
-    received_frames = []
+    def __init__(self, *args, **kwargs):
+        self.received_frames = []
+        super(L2bpfListenSocket, self).__init__(*args, **kwargs)
 
     def buffered_frames(self):
         """Return the number of frames in the buffer"""
@@ -237,7 +247,7 @@ class L2bpfListenSocket(_L2bpfSocket):
         return ((bh_h + bh_c) + (BPF_ALIGNMENT - 1)) & ~(BPF_ALIGNMENT - 1)
 
     def extract_frames(self, bpf_buffer):
-        """Extract all frames from the buffer and stored them in the received list."""
+        """Extract all frames from the buffer and stored them in the received list."""  # noqa: E501
 
         # Ensure that the BPF buffer contains at least the header
         len_bb = len(bpf_buffer)
@@ -253,11 +263,11 @@ class L2bpfListenSocket(_L2bpfSocket):
             bh_tstamp_offset = 8
 
         # Parse the BPF header
-        bh_caplen = struct.unpack('I', bpf_buffer[bh_tstamp_offset:bh_tstamp_offset + 4])[0]
+        bh_caplen = struct.unpack('I', bpf_buffer[bh_tstamp_offset:bh_tstamp_offset + 4])[0]  # noqa: E501
         next_offset = bh_tstamp_offset + 4
-        bh_datalen = struct.unpack('I', bpf_buffer[next_offset:next_offset + 4])[0]
+        bh_datalen = struct.unpack('I', bpf_buffer[next_offset:next_offset + 4])[0]  # noqa: E501
         next_offset += 4
-        bh_hdrlen = struct.unpack('H', bpf_buffer[next_offset:next_offset + 2])[0]
+        bh_hdrlen = struct.unpack('H', bpf_buffer[next_offset:next_offset + 2])[0]  # noqa: E501
         if bh_datalen == 0:
             return
 
@@ -265,7 +275,7 @@ class L2bpfListenSocket(_L2bpfSocket):
         frame_str = bpf_buffer[bh_hdrlen:bh_hdrlen + bh_caplen]
         try:
             pkt = self.guessed_cls(frame_str)
-        except:
+        except Exception:
             if conf.debug_dissector:
                 raise
             pkt = conf.raw_layer(frame_str)
@@ -336,7 +346,7 @@ class L3bpfSocket(L2bpfSocket):
         # Assign the network interface to the BPF handle
         if self.assigned_interface != iff:
             try:
-                fcntl.ioctl(self.outs, BIOCSETIF, struct.pack("16s16x", iff.encode()))
+                fcntl.ioctl(self.outs, BIOCSETIF, struct.pack("16s16x", iff.encode()))  # noqa: E501
             except IOError:
                 raise Scapy_Exception("BIOCSETIF failed on %s" % iff)
             self.assigned_interface = iff
@@ -353,7 +363,7 @@ class L3bpfSocket(L2bpfSocket):
 
 def isBPFSocket(obj):
     """Return True is obj is a BPF Super Socket"""
-    return isinstance(obj, L2bpfListenSocket) or isinstance(obj, L2bpfListenSocket) or isinstance(obj, L3bpfSocket)
+    return isinstance(obj, L2bpfListenSocket) or isinstance(obj, L2bpfListenSocket) or isinstance(obj, L3bpfSocket)  # noqa: E501
 
 
 def bpf_select(fds_list, timeout=None):

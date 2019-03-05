@@ -4,15 +4,13 @@ from io import BytesIO
 from struct import unpack, pack
 from zlib import crc32
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 from cryptography.hazmat.backends import default_backend
 
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 from scapy.compat import hex_bytes, orb
 from scapy.packet import Raw
-from scapy.modules.six.moves import range
-import scapy.modules.six as six
 
 # ARC4
 
@@ -173,11 +171,11 @@ def gen_TKIP_RC4_key(TSC, TA, TK):
     # Phase 1 - Step 2
     for i in range(PHASE1_LOOP_CNT):
         j = 2 * (i & 1)
-        TTAK[0] = _CAST16(TTAK[0] + _SBOX16(TTAK[4] ^ _MK16(TK[1 + j], TK[0 + j])))
-        TTAK[1] = _CAST16(TTAK[1] + _SBOX16(TTAK[0] ^ _MK16(TK[5 + j], TK[4 + j])))
-        TTAK[2] = _CAST16(TTAK[2] + _SBOX16(TTAK[1] ^ _MK16(TK[9 + j], TK[8 + j])))
-        TTAK[3] = _CAST16(TTAK[3] + _SBOX16(TTAK[2] ^ _MK16(TK[13 + j], TK[12 + j])))
-        TTAK[4] = _CAST16(TTAK[4] + _SBOX16(TTAK[3] ^ _MK16(TK[1 + j], TK[0 + j])) + i)
+        TTAK[0] = _CAST16(TTAK[0] + _SBOX16(TTAK[4] ^ _MK16(TK[1 + j], TK[0 + j])))  # noqa: E501
+        TTAK[1] = _CAST16(TTAK[1] + _SBOX16(TTAK[0] ^ _MK16(TK[5 + j], TK[4 + j])))  # noqa: E501
+        TTAK[2] = _CAST16(TTAK[2] + _SBOX16(TTAK[1] ^ _MK16(TK[9 + j], TK[8 + j])))  # noqa: E501
+        TTAK[3] = _CAST16(TTAK[3] + _SBOX16(TTAK[2] ^ _MK16(TK[13 + j], TK[12 + j])))  # noqa: E501
+        TTAK[4] = _CAST16(TTAK[4] + _SBOX16(TTAK[3] ^ _MK16(TK[1 + j], TK[0 + j])) + i)  # noqa: E501
 
     # Phase 2
     # 802.11i p.56
@@ -232,17 +230,17 @@ def _XSWAP(value):
     return ((value & 0xFF00FF00) >> 8) | ((value & 0x00FF00FF) << 8)
 
 
-def _michael_b(l, r):
+def _michael_b(m_l, m_r):
     """Defined in 802.11i p.49"""
-    r = r ^ _rotate_left32(l, 17)
-    l = (l + r) % 2**32
-    r = r ^ _XSWAP(l)
-    l = (l + r) % 2**32
-    r = r ^ _rotate_left32(l, 3)
-    l = (l + r) % 2**32
-    r = r ^ _rotate_right32(l, 2)
-    l = (l + r) % 2**32
-    return l, r
+    m_r = m_r ^ _rotate_left32(m_l, 17)
+    m_l = (m_l + m_r) % 2**32
+    m_r = m_r ^ _XSWAP(m_l)
+    m_l = (m_l + m_r) % 2**32
+    m_r = m_r ^ _rotate_left32(m_l, 3)
+    m_l = (m_l + m_r) % 2**32
+    m_r = m_r ^ _rotate_right32(m_l, 2)
+    m_l = (m_l + m_r) % 2**32
+    return m_l, m_r
 
 
 def michael(key, to_hash):
@@ -254,13 +252,13 @@ def michael(key, to_hash):
     data = to_hash + chr(0x5a) + "\x00" * (7 - nb_extra_bytes)
 
     # Hash
-    l, r = unpack('<II', key)
+    m_l, m_r = unpack('<II', key)
     for i in range(nb_block + 2):
         # Convert i-th block to int
         block_i = unpack('<I', data[i * 4:i * 4 + 4])[0]
-        l ^= block_i
-        l, r = _michael_b(l, r)
-    return pack('<II', l, r)
+        m_l ^= block_i
+        m_l, m_r = _michael_b(m_l, m_r)
+    return pack('<II', m_l, m_r)
 
 # TKIP packet utils
 
@@ -303,7 +301,7 @@ def build_TKIP_payload(data, iv, mac, tk):
         iv & 0xFF
     )
     bitfield = 1 << 5  # Extended IV
-    TKIP_hdr = chr(TSC1) + chr((TSC1 | 0x20) & 0x7f) + chr(TSC0) + chr(bitfield)
+    TKIP_hdr = chr(TSC1) + chr((TSC1 | 0x20) & 0x7f) + chr(TSC0) + chr(bitfield)  # noqa: E501
     TKIP_hdr += chr(TSC2) + chr(TSC3) + chr(TSC4) + chr(TSC5)
 
     TA = [orb(e) for e in hex_bytes(mac.replace(':', ''))]

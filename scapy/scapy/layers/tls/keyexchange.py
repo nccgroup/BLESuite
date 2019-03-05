@@ -9,10 +9,13 @@ TLS key exchange logic.
 
 from __future__ import absolute_import
 import math
+import struct
 
 from scapy.config import conf, crypto_validator
 from scapy.error import warning
-from scapy.fields import *
+from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
+    FieldListField, PacketField, ShortEnumField, ShortField, \
+    StrFixedLenField, StrLenField
 from scapy.compat import orb
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.tls.cert import PubKeyRSA, PrivKeyRSA
@@ -24,6 +27,7 @@ import scapy.modules.six as six
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import dh, ec
 
 
@@ -219,8 +223,8 @@ class _TLSSignatureField(PacketField):
         PacketField.__init__(self, name, default, _TLSSignature, remain=remain)
 
     def m2i(self, pkt, m):
-        l = self.length_from(pkt)
-        if l == 0:
+        tmp_len = self.length_from(pkt)
+        if tmp_len == 0:
             return None
         return _TLSSignature(m, tls_session=pkt.tls_session)
 
@@ -255,11 +259,11 @@ class _TLSServerParamsField(PacketField):
 
     def m2i(self, pkt, m):
         s = pkt.tls_session
-        l = self.length_from(pkt)
+        tmp_len = self.length_from(pkt)
         if s.prcs:
             cls = s.prcs.key_exchange.server_kx_msg_cls(m)
             if cls is None:
-                return None, Raw(m[:l]) / Padding(m[l:])
+                return None, Raw(m[:tmp_len]) / Padding(m[tmp_len:])
             return cls(m, tls_session=s)
         else:
             try:
@@ -267,11 +271,11 @@ class _TLSServerParamsField(PacketField):
                 if pkcs_os2ip(p.load[:2]) not in _tls_hash_sig:
                     raise Exception
                 return p
-            except:
+            except Exception:
                 cls = _tls_server_ecdh_cls_guess(m)
                 p = cls(m, tls_session=s)
                 if pkcs_os2ip(p.load[:2]) not in _tls_hash_sig:
-                    return None, Raw(m[:l]) / Padding(m[l:])
+                    return None, Raw(m[:tmp_len]) / Padding(m[tmp_len:])
                 return p
 
 
@@ -307,7 +311,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
-        things everytime it is called. This method can be called specifically
+        things every time it is called. This method can be called specifically
         to have things filled in a smart fashion.
 
         Note that we do not expect default_params.g to be more than 0xff.
@@ -453,7 +457,7 @@ class _ECBasisField(PacketField):
         val = 0
         try:
             val = x.val
-        except:
+        except Exception:
             pass
         return val
 
@@ -549,7 +553,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
-        things everytime it is called. This method can be called specifically
+        things every time it is called. This method can be called specifically
         to have things filled in a smart fashion.
 
         XXX We should account for the point_format (before 'point' filling).
@@ -563,7 +567,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
             curve = ec.SECP256R1()
             s.server_kx_privkey = ec.generate_private_key(curve,
                                                           default_backend())
-            self.named_curve = next((cid for cid, name in six.iteritems(_tls_named_curves)
+            self.named_curve = next((cid for cid, name in six.iteritems(_tls_named_curves)  # noqa: E501
                                      if name == curve.name), 0)
         else:
             curve_name = _tls_named_curves.get(self.named_curve)
@@ -582,7 +586,15 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
 
         if self.point is None:
             pubkey = s.server_kx_privkey.public_key()
-            self.point = pubkey.public_numbers().encode_point()
+            try:
+                # cryptography >= 2.5
+                self.point = pubkey.public_bytes(
+                    serialization.Encoding.X962,
+                    serialization.PublicFormat.UncompressedPoint
+                )
+            except TypeError:
+                # older versions
+                self.key_exchange = pubkey.public_numbers().encode_point()
         # else, we assume that the user wrote the server_kx_privkey by himself
         if self.pointlen is None:
             self.pointlen = len(self.point)
@@ -698,7 +710,7 @@ class ServerPSKParams(Packet):
     fields_desc = [FieldLenField("psk_identity_hint_len", None,
                                  length_of="psk_identity_hint", fmt="!H"),
                    StrLenField("psk_identity_hint", "",
-                               length_from=lambda pkt: pkt.psk_identity_hint_len)]
+                               length_from=lambda pkt: pkt.psk_identity_hint_len)]  # noqa: E501
 
     def fill_missing(self):
         pass
@@ -842,7 +854,7 @@ class _UnEncryptedPreMasterSecret(Raw):
 
     def __init__(self, *args, **kargs):
         kargs.pop('tls_session', None)
-        return super(_UnEncryptedPreMasterSecret, self).__init__(*args, **kargs)
+        return super(_UnEncryptedPreMasterSecret, self).__init__(*args, **kargs)  # noqa: E501
 
 
 class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
@@ -868,8 +880,8 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
         if s.tls_version >= 0x0301:
             if len(m) < 2:      # Should not happen
                 return m
-            l = struct.unpack("!H", m[:2])[0]
-            if len(m) != l + 2:
+            tmp_len = struct.unpack("!H", m[:2])[0]
+            if len(m) != tmp_len + 2:
                 err = "TLS 1.0+, but RSA Encrypted PMS with no explicit length"
                 warning(err)
             else:
@@ -912,10 +924,10 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
         else:
             warning("No material to encrypt Pre Master Secret")
 
-        l = b""
+        tmp_len = b""
         if s.tls_version >= 0x0301:
-            l = struct.pack("!H", len(enc))
-        return l + enc + pay
+            tmp_len = struct.pack("!H", len(enc))
+        return tmp_len + enc + pay
 
     def guess_payload_class(self, p):
         return Padding

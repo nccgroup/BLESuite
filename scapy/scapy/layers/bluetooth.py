@@ -1,28 +1,37 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # Copyright (C) Mike Ryan <mikeryan@lacklustre.net>
+# Copyright (C) Michael Farrell <micolous+git@gmail.com>
 # This program is published under a GPLv2 license
 
 """
 Bluetooth layers, sockets and send/receive functions.
 """
 
+import ctypes
 import socket
 import struct
-import array
-from ctypes import *
 from select import select
+from ctypes import sizeof
+from uuid import UUID
 
 from scapy.config import conf
-from scapy.data import DLT_BLUETOOTH_HCI_H4
-from scapy.packet import *
-from scapy.fields import *
+from scapy.data import DLT_BLUETOOTH_HCI_H4, DLT_BLUETOOTH_HCI_H4_WITH_PHDR
+from scapy.packet import bind_layers, Packet
+from scapy.fields import ByteEnumField, ByteField, Field, FieldLenField, \
+    FieldListField, FlagsField, IntField, LEShortEnumField, LEShortField, \
+    LenField, PacketListField, SignedByteField, StrField, StrFixedLenField, \
+    StrLenField, XByteField, BitField, XLELongField, PadField
 from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
 from scapy.data import MTU
 from scapy.consts import WINDOWS
-from scapy.error import warning, log_loading
+from scapy.error import warning
+from scapy.utils import lhex, mac2str, str2mac
+from scapy.volatile import RandMAC
+from scapy.modules import six
+from scapy.compat import plain_str
 
 
 ##########
@@ -30,14 +39,6 @@ from scapy.error import warning, log_loading
 ##########
 
 class XLEShortField(LEShortField):
-    def i2repr(self, pkt, x):
-        return lhex(self.i2h(pkt, x))
-
-
-class XLELongField(LEShortField):
-    def __init__(self, name, default):
-        Field.__init__(self, name, default, "<Q")
-
     def i2repr(self, pkt, x):
         return lhex(self.i2h(pkt, x))
 
@@ -55,7 +56,7 @@ class LEMACField(Field):
         return str2mac(x[::-1])
 
     def any2i(self, pkt, x):
-        if isinstance(x, str) and len(x) is 6:
+        if isinstance(x, (six.binary_type, six.text_type)) and len(x) == 6:
             x = self.m2i(pkt, x)
         return x
 
@@ -68,6 +69,76 @@ class LEMACField(Field):
     def randval(self):
         return RandMAC()
 
+
+class BTUUID128Field(Field):
+    """Field for Bluetooth UUID storage, wrapping Python's uuid.UUID type.
+
+    Bluetooth stores UUIDs as a 128-bit little-endian integer. This differs
+    from most other encodings, which only change the endianness of the first
+    three component integers (time_low, time_mid, time_high_version), but
+    otherwise emit the fields in a consistent order.
+
+    The internal storage format of this field is ``uuid.UUID`` from the Python
+    standard library.
+
+    The "human encoding" of this field supports a number of different input
+    formats, and wraps Python's ``uuid.UUID`` library appropriately:
+
+    * Given a bytearray or str of 16 bytes, this class decodes UUIDs in
+      Bluetooth wire format.
+
+    * Given a bytearray or str of other lengths, this delegates to
+      ``uuid.UUID`` the Python standard library. This supports a number of
+      different encoding options -- see the Python standard library
+      documentation for more details.
+
+    * Given an int or long, presumed to be a 128-bit integer to pass to
+      ``uuid.UUID``.
+
+    * Given a tuple, this is presumed to be a tuple of 6 integers to pass to
+      ``uuid.UUID``.
+
+    Other types (such as ``uuid.UUID``) are passed through.
+    """
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "16s")
+
+    def i2m(self, pkt, x):
+        if x is None:
+            return bytes(16)
+        return x.bytes[::-1]
+
+    def m2i(self, pkt, x):
+        return UUID(bytes=x[::-1])
+
+    def any2i(self, pkt, x):
+        if isinstance(x, six.integer_types):
+            x = UUID(int=x)
+        elif isinstance(x, tuple):
+            x = UUID(fields=x)
+        elif isinstance(x, (six.binary_type, six.text_type)):
+            if len(x) == 16:
+                # Raw bytes
+                x = self.m2i(pkt, x)
+            else:
+                x = UUID(plain_str(x))
+        return x
+
+
+##########
+# Layers #
+##########
+
+# See bluez/lib/hci.h for details
+
+# Transport layers
+
+class HCI_PHDR_Hdr(Packet):
+    name = "HCI PHDR transport layer"
+    fields_desc = [IntField("direction", 0)]
+
+
+# Real layers
 
 _bluetooth_packet_types = {
     0: "Acknowledgement",
@@ -91,21 +162,16 @@ class HCI_Hdr(Packet):
 
 class HCI_ACL_Hdr(Packet):
     name = "HCI ACL header"
-    fields_desc = [BitField("handle", 0, 12),    # TODO: Create and use LEBitField
-                   BitField("PB", 0, 2),      # They are recieved as a **combined** LE Short
-                   BitField("BC", 0, 2),      # Handle is 12 bits, eacg flag is 2 bits.
+    # NOTE: the 2-bytes entity formed by the 2 flags + handle must be LE
+    # This means that we must reverse those two bytes manually (we don't have
+    # a field that can reverse a group of fields)
+    fields_desc = [BitField("BC", 0, 2),       # ]
+                   BitField("PB", 0, 2),       # ]=> 2 bytes
+                   BitField("handle", 0, 12),  # ]
                    LEShortField("len", None), ]
 
     def pre_dissect(self, s):
-        # Recieve data as LE stored as
-        # .... 1111 0100 1100 = handle
-        # 1010 .... .... .... = flags
-        # And turn it into
-        # 1111 0100 1100 .... = handle
-        # .... .... .... 1010 = flags
-        hf = socket.ntohs(struct.unpack("!H", s[:2])[0])
-        r = ((hf & 0x0fff) << 4) + (hf >> 12)
-        return struct.pack("!H", r) + s[2:]
+        return s[:2][::-1] + s[2:]  # Reverse the 2 first bytes
 
     def post_dissect(self, s):
         self.raw_packet_cache = None  # Reset packet to allow post_build
@@ -116,15 +182,13 @@ class HCI_ACL_Hdr(Packet):
         if self.len is None:
             p = p[:2] + struct.pack("<H", len(pay)) + p[4:]
         # Reverse, opposite of pre_dissect
-        hf = struct.unpack("!H", p[:2])[0]
-        r = socket.ntohs(((hf & 0xf) << 12) + (hf >> 4))
-        return struct.pack("!H", r) + p[2:]
+        return p[:2][::-1] + p[2:]  # Reverse (again) the 2 first bytes
 
 
 class L2CAP_Hdr(Packet):
     name = "L2CAP header"
     fields_desc = [LEShortField("len", None),
-                   LEShortEnumField("cid", 0, {1: "control", 4: "attribute"}), ]
+                   LEShortEnumField("cid", 0, {1: "control", 4: "attribute"}), ]  # noqa: E501
 
     def post_build(self, p, pay):
         p += pay
@@ -137,9 +201,9 @@ class L2CAP_CmdHdr(Packet):
     name = "L2CAP command header"
     fields_desc = [
         ByteEnumField("code", 8, {1: "rej", 2: "conn_req", 3: "conn_resp",
-                                  4: "conf_req", 5: "conf_resp", 6: "disconn_req",
-                                  7: "disconn_resp", 8: "echo_req", 9: "echo_resp",
-                                  10: "info_req", 11: "info_resp", 18: "conn_param_update_req",
+                                  4: "conf_req", 5: "conf_resp", 6: "disconn_req",  # noqa: E501
+                                  7: "disconn_resp", 8: "echo_req", 9: "echo_resp",  # noqa: E501
+                                  10: "info_req", 11: "info_resp", 18: "conn_param_update_req",  # noqa: E501
                                   19: "conn_param_update_resp"}),
         ByteField("id", 0),
         LEShortField("len", None)]
@@ -154,7 +218,7 @@ class L2CAP_CmdHdr(Packet):
         if other.id == self.id:
             if self.code == 1:
                 return 1
-            if other.code in [2, 4, 6, 8, 10, 18] and self.code == other.code + 1:
+            if other.code in [2, 4, 6, 8, 10, 18] and self.code == other.code + 1:  # noqa: E501
                 if other.code == 8:
                     return 1
                 return self.payload.answers(other.payload)
@@ -163,7 +227,7 @@ class L2CAP_CmdHdr(Packet):
 
 class L2CAP_ConnReq(Packet):
     name = "L2CAP Conn Req"
-    fields_desc = [LEShortEnumField("psm", 0, {1: "SDP", 3: "RFCOMM", 5: "telephony control"}),
+    fields_desc = [LEShortEnumField("psm", 0, {1: "SDP", 3: "RFCOMM", 5: "telephony control"}),  # noqa: E501
                    LEShortField("scid", 0),
                    ]
 
@@ -172,8 +236,8 @@ class L2CAP_ConnResp(Packet):
     name = "L2CAP Conn Resp"
     fields_desc = [LEShortField("dcid", 0),
                    LEShortField("scid", 0),
-                   LEShortEnumField("result", 0, ["success", "pend", "cr_bad_psm", "cr_sec_block", "cr_no_mem", "reserved", "cr_inval_scid", "cr_scid_in_use"]),
-                   LEShortEnumField("status", 0, ["no_info", "authen_pend", "author_pend", "reserved"]),
+                   LEShortEnumField("result", 0, ["success", "pend", "cr_bad_psm", "cr_sec_block", "cr_no_mem", "reserved", "cr_inval_scid", "cr_scid_in_use"]),  # noqa: E501
+                   LEShortEnumField("status", 0, ["no_info", "authen_pend", "author_pend", "reserved"]),  # noqa: E501
                    ]
 
     def answers(self, other):
@@ -197,7 +261,7 @@ class L2CAP_ConfResp(Packet):
     name = "L2CAP Conf Resp"
     fields_desc = [LEShortField("scid", 0),
                    LEShortField("flags", 0),
-                   LEShortEnumField("result", 0, ["success", "unaccept", "reject", "unknown"]),
+                   LEShortEnumField("result", 0, ["success", "unaccept", "reject", "unknown"]),  # noqa: E501
                    ]
 
     def answers(self, other):
@@ -278,7 +342,7 @@ class ATT_Find_Information_Request(Packet):
 
 
 class ATT_Find_Information_Response(Packet):
-    name = "Find Information Reponse"
+    name = "Find Information Response"
     fields_desc = [XByteField("format", 1),
                    StrField("data", "")]
 
@@ -320,7 +384,7 @@ class ATT_Read_By_Type_Request(Packet):
 class ATT_Read_By_Type_Response(Packet):
     name = "Read By Type Response"
     # fields_desc = [ FieldLenField("len", None, length_of="data", fmt="B"),
-    #                 StrLenField("data", "", length_from=lambda pkt:pkt.len), ]
+    #                 StrLenField("data", "", length_from=lambda pkt:pkt.len), ]  # noqa: E501
     fields_desc = [StrField("data", "")]
 
 
@@ -332,17 +396,6 @@ class ATT_Read_Request(Packet):
 class ATT_Read_Response(Packet):
     name = "Read Response"
     fields_desc = [StrField("value", ""), ]
-
-
-class ATT_Read_Blob_Request(Packet):
-    name = "Read Blob Request"
-    fields_desc = [ XLEShortField("gatt_handle", 0),
-                    XLEShortField("value_offset", 0), ]
-
-
-class ATT_Read_Blob_Response(Packet):
-    name = "Read Blob Response"
-    fields_desc = [ StrField("value", ""), ]
 
 
 class ATT_Read_Multiple_Request(Packet):
@@ -382,30 +435,19 @@ class ATT_Write_Command(Packet):
 
 class ATT_Write_Response(Packet):
     name = "Write Response"
-    fields_desc = []
 
 
 class ATT_Prepare_Write_Request(Packet):
     name = "Prepare Write Request"
-    fields_desc = [ XLEShortField("gatt_handle", 0),
-                    XLEShortField("offset", 0),
-                    StrField("data", ""), ]
+    fields_desc = [
+        XLEShortField("gatt_handle", 0),
+        LEShortField("offset", 0),
+        StrField("data", "")
+    ]
 
-class ATT_Prepare_Write_Response(Packet):
+
+class ATT_Prepare_Write_Response(ATT_Prepare_Write_Request):
     name = "Prepare Write Response"
-    fields_desc = [ XLEShortField("gatt_handle", 0),
-                    XLEShortField("offset", 0),
-                    StrField("data", ""), ]
-
-class ATT_Execute_Write_Request(Packet):
-    name = "Execute Write Request"
-    fields_desc = [ ByteEnumField("flags", 1, {0:"Cancel all prepared writes",
-                                               1:"Immediately write all pending"
-                                                 "prepared values"}), ]
-
-class ATT_Execute_Write_Response(Packet):
-    name = "Execute Write Response"
-    fields_desc = [ ]
 
 
 class ATT_Handle_Value_Notification(Packet):
@@ -414,10 +456,35 @@ class ATT_Handle_Value_Notification(Packet):
                    StrField("value", ""), ]
 
 
+class ATT_Execute_Write_Request(Packet):
+    name = "Execute Write Request"
+    fields_desc = [
+        ByteEnumField("flags", 1, {
+            0:"Cancel all prepared writes",
+            1:"Immediately write all pending prepared values",
+        }),
+    ]
+
+
+class ATT_Read_Blob_Request(Packet):
+    fields_desc = [
+        XLEShortField("gatt_handle", 0),
+        LEShortField("offset", 0)
+    ]
+
+
+class ATT_Read_Blob_Response(Packet):
+    fields_desc = [
+        StrField("value", "")
+    ]
+
+
 class ATT_Handle_Value_Indication(Packet):
     name = "Handle Value Indication"
-    fields_desc = [ XLEShortField("gatt_handle", 0),
-                    StrField("value", ""), ]
+    fields_desc = [
+        XLEShortField("gatt_handle", 0),
+        StrField("value", ""),
+    ]
 
 
 class SM_Hdr(Packet):
@@ -427,8 +494,8 @@ class SM_Hdr(Packet):
 
 class SM_Pairing_Request(Packet):
     name = "Pairing Request"
-    fields_desc = [ByteEnumField("iocap", 3, {0: "DisplayOnly", 1: "DisplayYesNo", 2: "KeyboardOnly", 3: "NoInputNoOutput", 4: "KeyboardDisplay"}),
-                   ByteEnumField("oob", 0, {0: "Not Present", 1: "Present (from remote device)"}),
+    fields_desc = [ByteEnumField("iocap", 3, {0: "DisplayOnly", 1: "DisplayYesNo", 2: "KeyboardOnly", 3: "NoInputNoOutput", 4: "KeyboardDisplay"}),  # noqa: E501
+                   ByteEnumField("oob", 0, {0: "Not Present", 1: "Present (from remote device)"}),  # noqa: E501
                    BitField("authentication", 0, 8),
                    ByteField("max_key_size", 16),
                    ByteField("initiator_key_distribution", 0),
@@ -437,8 +504,8 @@ class SM_Pairing_Request(Packet):
 
 class SM_Pairing_Response(Packet):
     name = "Pairing Response"
-    fields_desc = [ByteEnumField("iocap", 3, {0: "DisplayOnly", 1: "DisplayYesNo", 2: "KeyboardOnly", 3: "NoInputNoOutput", 4: "KeyboardDisplay"}),
-                   ByteEnumField("oob", 0, {0: "Not Present", 1: "Present (from remote device)"}),
+    fields_desc = [ByteEnumField("iocap", 3, {0: "DisplayOnly", 1: "DisplayYesNo", 2: "KeyboardOnly", 3: "NoInputNoOutput", 4: "KeyboardDisplay"}),  # noqa: E501
+                   ByteEnumField("oob", 0, {0: "Not Present", 1: "Present (from remote device)"}),  # noqa: E501
                    BitField("authentication", 0, 8),
                    ByteField("max_key_size", 16),
                    ByteField("initiator_key_distribution", 0),
@@ -490,7 +557,8 @@ class SM_Signing_Information(Packet):
 class EIR_Hdr(Packet):
     name = "EIR Header"
     fields_desc = [
-        LenField("len", None, fmt="B", adjust=lambda x: x + 1),  # Add bytes mark
+        LenField("len", None, fmt="B", adjust=lambda x: x + 1),  # Add bytes mark  # noqa: E501
+        # https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile
         ByteEnumField("type", 0, {
             0x01: "flags",
             0x02: "incomplete_list_16_bit_svc_uuids",
@@ -505,24 +573,38 @@ class EIR_Hdr(Packet):
             0x0d: "class_of_device",
             0x0e: "simple_pairing_hash",
             0x0f: "simple_pairing_rand",
+
             0x10: "sec_mgr_tk",
             0x11: "sec_mgr_oob_flags",
             0x12: "slave_conn_intvl_range",
+            0x14: "list_16_bit_svc_sollication_uuids",
+            0x15: "list_128_bit_svc_sollication_uuids",
+            0x16: "svc_data_16_bit_uuid",
             0x17: "pub_target_addr",
             0x18: "rand_target_addr",
             0x19: "appearance",
             0x1a: "adv_intvl",
             0x1b: "le_addr",
             0x1c: "le_role",
-            0x14: "list_16_bit_svc_sollication_uuids",
+            0x1d: "simple_pairing_hash_256",
+            0x1e: "simple_pairing_rand_256",
             0x1f: "list_32_bit_svc_sollication_uuids",
-            0x15: "list_128_bit_svc_sollication_uuids",
-            0x16: "svc_data_16_bit_uuid",
+
             0x20: "svc_data_32_bit_uuid",
             0x21: "svc_data_128_bit_uuid",
             0x22: "sec_conn_confirm",
-            0x22: "sec_conn_rand",
+            0x23: "sec_conn_rand",
             0x24: "uri",
+            0x25: "indoor_positioning",
+            0x26: "transport_discovery",
+            0x27: "le_supported_features",
+            0x28: "channel_map_update",
+            0x29: "mesh_pb_adv",
+            0x2a: "mesh_message",
+            0x2b: "mesh_beacon",
+
+            0x3d: "3d_information",
+
             0xff: "mfg_specific_data",
         }),
     ]
@@ -536,7 +618,7 @@ class EIR_Element(Packet):
 
     def extract_padding(self, s):
         # Needed to end each EIR_Element packet and make PacketListField work.
-        return '', s
+        return b'', s
 
     @staticmethod
     def length_from(pkt):
@@ -567,6 +649,7 @@ class EIR_Flags(EIR_Element):
 class EIR_CompleteList16BitServiceUUIDs(EIR_Element):
     name = "Complete list of 16-bit service UUIDs"
     fields_desc = [
+        # https://www.bluetooth.com/specifications/assigned-numbers/16-bit-uuids-for-members
         FieldListField("svc_uuids", None, XLEShortField("uuid", 0),
                        length_from=EIR_Element.length_from)
     ]
@@ -574,6 +657,18 @@ class EIR_CompleteList16BitServiceUUIDs(EIR_Element):
 
 class EIR_IncompleteList16BitServiceUUIDs(EIR_CompleteList16BitServiceUUIDs):
     name = "Incomplete list of 16-bit service UUIDs"
+
+
+class EIR_CompleteList128BitServiceUUIDs(EIR_Element):
+    name = "Complete list of 128-bit service UUIDs"
+    fields_desc = [
+        FieldListField("svc_uuids", None, BTUUID128Field("uuid", None),
+                       length_from=EIR_Element.length_from)
+    ]
+
+
+class EIR_IncompleteList128BitServiceUUIDs(EIR_CompleteList128BitServiceUUIDs):
+    name = "Incomplete list of 128-bit service UUIDs"
 
 
 class EIR_CompleteLocalName(EIR_Element):
@@ -595,10 +690,14 @@ class EIR_TX_Power_Level(EIR_Element):
 class EIR_Manufacturer_Specific_Data(EIR_Element):
     name = "EIR Manufacturer Specific Data"
     fields_desc = [
-        XLEShortField("company_id", 0),
-        StrLenField("data", "",
-                    length_from=lambda pkt: EIR_Element.length_from(pkt) - 2)
+        # https://www.bluetooth.com/specifications/assigned-numbers/company-identifiers
+        XLEShortField("company_id", None),
     ]
+
+    def extract_padding(self, s):
+        # Needed to end each EIR_Element packet and make PacketListField work.
+        plen = EIR_Element.length_from(self) - 2
+        return s[:plen], s[plen:]
 
 
 class EIR_Device_ID(EIR_Element):
@@ -611,10 +710,26 @@ class EIR_Device_ID(EIR_Element):
     ]
 
 
+class EIR_ServiceData16BitUUID(EIR_Element):
+    name = "EIR Service Data - 16-bit UUID"
+    fields_desc = [
+        # https://www.bluetooth.com/specifications/assigned-numbers/16-bit-uuids-for-members
+        XLEShortField("svc_uuid", None),
+    ]
+
+    def extract_padding(self, s):
+        # Needed to end each EIR_Element packet and make PacketListField work.
+        plen = EIR_Element.length_from(self) - 2
+        return s[:plen], s[plen:]
+
+
 class HCI_Command_Hdr(Packet):
     name = "HCI Command header"
     fields_desc = [XLEShortField("opcode", 0),
-                   ByteField("len", None), ]
+                   LenField("len", None, fmt="B"), ]
+
+    def answers(self, other):
+        return False
 
     def post_build(self, p, pay):
         p += pay
@@ -645,7 +760,7 @@ class HCI_Cmd_LE_Host_Supported(Packet):
 
 class HCI_Cmd_Set_Event_Mask(Packet):
     name = "Set Event Mask"
-    fields_desc = [StrFixedLenField("mask", b"\xff\xff\xfb\xff\x07\xf8\xbf\x3d", 8)]
+    fields_desc = [StrFixedLenField("mask", b"\xff\xff\xfb\xff\x07\xf8\xbf\x3d", 8)]  # noqa: E501
 
 
 class HCI_Cmd_Read_BD_Addr(Packet):
@@ -670,7 +785,7 @@ class HCI_Cmd_LE_Set_Scan_Parameters(Packet):
                    XLEShortField("interval", 16),
                    XLEShortField("window", 16),
                    ByteEnumField("atype", 0, {0: "public"}),
-                   ByteEnumField("policy", 0, {0: "all"}), ]
+                   ByteEnumField("policy", 0, {0: "all", 1: "whitelist"}), ]
 
 
 class HCI_Cmd_LE_Set_Scan_Enable(Packet):
@@ -705,6 +820,24 @@ class HCI_Cmd_LE_Create_Connection_Cancel(Packet):
     name = "LE Create Connection Cancel"
 
 
+class HCI_Cmd_LE_Read_White_List_Size(Packet):
+    name = "LE Read White List Size"
+
+
+class HCI_Cmd_LE_Clear_White_List(Packet):
+    name = "LE Clear White List"
+
+
+class HCI_Cmd_LE_Add_Device_To_White_List(Packet):
+    name = "LE Add Device to White List"
+    fields_desc = [ByteEnumField("atype", 0, {0: "public", 1: "random"}),
+                   LEMACField("address", None)]
+
+
+class HCI_Cmd_LE_Remove_Device_From_White_List(HCI_Cmd_LE_Add_Device_To_White_List):  # noqa: E501
+    name = "LE Remove Device from White List"
+
+
 class HCI_Cmd_LE_Connection_Update(Packet):
     name = "LE Connection Update"
     fields_desc = [XLEShortField("handle", 0),
@@ -734,18 +867,21 @@ class HCI_Cmd_LE_Set_Advertising_Parameters(Packet):
     name = "LE Set Advertising Parameters"
     fields_desc = [LEShortField("interval_min", 0x0800),
                    LEShortField("interval_max", 0x0800),
-                   ByteEnumField("adv_type", 0, {0: "ADV_IND", 1: "ADV_DIRECT_IND", 2: "ADV_SCAN_IND", 3: "ADV_NONCONN_IND", 4: "ADV_DIRECT_IND_LOW"}),
+                   ByteEnumField("adv_type", 0, {0: "ADV_IND", 1: "ADV_DIRECT_IND", 2: "ADV_SCAN_IND", 3: "ADV_NONCONN_IND", 4: "ADV_DIRECT_IND_LOW"}),  # noqa: E501
                    ByteEnumField("oatype", 0, {0: "public", 1: "random"}),
                    ByteEnumField("datype", 0, {0: "public", 1: "random"}),
                    LEMACField("daddr", None),
                    ByteField("channel_map", 7),
-                   ByteEnumField("filter_policy", 0, {0: "all:all", 1: "connect:all scan:whitelist", 2: "connect:whitelist scan:all", 3: "all:whitelist"}), ]
+                   ByteEnumField("filter_policy", 0, {0: "all:all", 1: "connect:all scan:whitelist", 2: "connect:whitelist scan:all", 3: "all:whitelist"}), ]  # noqa: E501
 
 
 class HCI_Cmd_LE_Set_Advertising_Data(Packet):
     name = "LE Set Advertising Data"
     fields_desc = [FieldLenField("len", None, length_of="data", fmt="B"),
-                   StrLenField("data", "", length_from=lambda pkt:pkt.len), ]
+                   PadField(
+                       PacketListField("data", [], EIR_Hdr,
+                                       length_from=lambda pkt:pkt.len),
+                       align=31, padwith=b"\0"), ]
 
 
 class HCI_Cmd_LE_Set_Scan_Response_Data(Packet):
@@ -781,7 +917,14 @@ class HCI_Cmd_LE_Long_Term_Key_Request_Reply(Packet):
 class HCI_Event_Hdr(Packet):
     name = "HCI Event header"
     fields_desc = [XByteField("code", 0),
-                   ByteField("length", 0), ]
+                   LenField("len", None, fmt="B"), ]
+
+    def answers(self, other):
+        if HCI_Command_Hdr not in other:
+            return False
+
+        # Delegate answers to event types
+        return self.payload.answers(other)
 
 
 class HCI_Event_Disconnection_Complete(Packet):
@@ -795,7 +938,7 @@ class HCI_Event_Encryption_Change(Packet):
     name = "Encryption Change"
     fields_desc = [ByteEnumField("status", 0, {0: "change has occurred"}),
                    LEShortField("handle", 0),
-                   ByteEnumField("enabled", 0, {0: "OFF", 1: "ON (LE)", 2: "ON (BR/EDR)"}), ]
+                   ByteEnumField("enabled", 0, {0: "OFF", 1: "ON (LE)", 2: "ON (BR/EDR)"}), ]  # noqa: E501
 
 
 class HCI_Event_Command_Complete(Packet):
@@ -804,10 +947,22 @@ class HCI_Event_Command_Complete(Packet):
                    XLEShortField("opcode", 0),
                    ByteEnumField("status", 0, {0: "success"}), ]
 
+    def answers(self, other):
+        if HCI_Command_Hdr not in other:
+            return False
+
+        return other[HCI_Command_Hdr].opcode == self.opcode
+
 
 class HCI_Cmd_Complete_Read_BD_Addr(Packet):
     name = "Read BD Addr"
     fields_desc = [LEMACField("addr", None), ]
+
+
+class HCI_Cmd_Complete_LE_Read_White_List_Size(Packet):
+    name = "LE Read White List Size"
+    fields_desc = [ByteField("status", 0),
+                   ByteField("size", 0), ]
 
 
 class HCI_Event_Command_Status(Packet):
@@ -815,6 +970,12 @@ class HCI_Event_Command_Status(Packet):
     fields_desc = [ByteEnumField("status", 0, {0: "pending"}),
                    ByteField("number", 0),
                    XLEShortField("opcode", None), ]
+
+    def answers(self, other):
+        if HCI_Command_Hdr not in other:
+            return False
+
+        return other[HCI_Command_Hdr].opcode == self.opcode
 
 
 class HCI_Event_Number_Of_Completed_Packets(Packet):
@@ -824,7 +985,19 @@ class HCI_Event_Number_Of_Completed_Packets(Packet):
 
 class HCI_Event_LE_Meta(Packet):
     name = "LE Meta"
-    fields_desc = [ByteEnumField("event", 0, {2: "advertising_report"})]
+    fields_desc = [ByteEnumField("event", 0, {
+                   1: "connection_complete",
+                   2: "advertising_report",
+                   3: "connection_update_complete",
+                   5: "long_term_key_request",
+                   }), ]
+
+    def answers(self, other):
+        if not self.payload:
+            return False
+
+        # Delegate answers to payload
+        return self.payload.answers(other)
 
 
 class HCI_LE_Meta_Connection_Complete(Packet):
@@ -839,6 +1012,13 @@ class HCI_LE_Meta_Connection_Complete(Packet):
                    LEShortField("supervision", 42),
                    XByteField("clock_latency", 5), ]
 
+    def answers(self, other):
+        if HCI_Cmd_LE_Create_Connection not in other:
+            return False
+
+        return (other[HCI_Cmd_LE_Create_Connection].patype == self.patype and
+                other[HCI_Cmd_LE_Create_Connection].paddr == self.paddr)
+
 
 class HCI_LE_Meta_Connection_Update_Complete(Packet):
     name = "Connection Update Complete"
@@ -851,14 +1031,24 @@ class HCI_LE_Meta_Connection_Update_Complete(Packet):
 
 class HCI_LE_Meta_Advertising_Report(Packet):
     name = "Advertising Report"
-    fields_desc = [ByteField("number", 0),
-                   ByteEnumField("type", 0, {0: "conn_und", 4: "scan_rsp"}),
+    fields_desc = [ByteEnumField("type", 0, {0: "conn_und", 4: "scan_rsp"}),
                    ByteEnumField("atype", 0, {0: "public", 1: "random"}),
                    LEMACField("addr", None),
                    FieldLenField("len", None, length_of="data", fmt="B"),
                    PacketListField("data", [], EIR_Hdr,
                                    length_from=lambda pkt:pkt.len),
                    SignedByteField("rssi", 0)]
+
+    def extract_padding(self, s):
+        return '', s
+
+
+class HCI_LE_Meta_Advertising_Reports(Packet):
+    name = "Advertising Reports"
+    fields_desc = [FieldLenField("len", None, count_of="reports", fmt="B"),
+                   PacketListField("reports", None,
+                                   HCI_LE_Meta_Advertising_Report,
+                                   count_from=lambda pkt:pkt.len)]
 
 
 class HCI_LE_Meta_Long_Term_Key_Request(Packet):
@@ -868,12 +1058,15 @@ class HCI_LE_Meta_Long_Term_Key_Request(Packet):
                    XLEShortField("ediv", 0), ]
 
 
+bind_layers(HCI_PHDR_Hdr, HCI_Hdr)
+
 bind_layers(HCI_Hdr, HCI_Command_Hdr, type=1)
 bind_layers(HCI_Hdr, HCI_ACL_Hdr, type=2)
 bind_layers(HCI_Hdr, HCI_Event_Hdr, type=4)
 bind_layers(HCI_Hdr, conf.raw_layer,)
 
 conf.l2types.register(DLT_BLUETOOTH_HCI_H4, HCI_Hdr)
+conf.l2types.register(DLT_BLUETOOTH_HCI_H4_WITH_PHDR, HCI_PHDR_Hdr)
 
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Reset, opcode=0x0c03)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Mask, opcode=0x0c01)
@@ -885,7 +1078,7 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_BD_Addr, opcode=0x1009)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Local_Name, opcode=0x0c13)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Buffer_Size, opcode=0x2002)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Random_Address, opcode=0x2005)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Parameters, opcode=0x2006)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Parameters, opcode=0x2006)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Data, opcode=0x2008)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Response_Data, opcode=0x2009)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertise_Enable, opcode=0x200a)
@@ -893,11 +1086,16 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Parameters, opcode=0x200b)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, opcode=0x200c)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Disconnect, opcode=0x406)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection, opcode=0x200d)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection_Cancel, opcode=0x200e)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Create_Connection_Cancel, opcode=0x200e)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_White_List_Size, opcode=0x200f)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Clear_White_List, opcode=0x2010)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Add_Device_To_White_List, opcode=0x2011)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Remove_Device_From_White_List, opcode=0x2012)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Connection_Update, opcode=0x2013)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Remote_Used_Features, opcode=0x2016)
 
 
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)  # noqa: E501
 
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)
 
@@ -911,20 +1109,24 @@ bind_layers(HCI_Event_Hdr, HCI_Event_Command_Status, code=0xf)
 bind_layers(HCI_Event_Hdr, HCI_Event_Number_Of_Completed_Packets, code=0x13)
 bind_layers(HCI_Event_Hdr, HCI_Event_LE_Meta, code=0x3e)
 
-bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_BD_Addr, opcode=0x1009)
+bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_Read_BD_Addr, opcode=0x1009)  # noqa: E501
+bind_layers(HCI_Event_Command_Complete, HCI_Cmd_Complete_LE_Read_White_List_Size, opcode=0x200f)  # noqa: E501
 
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Complete, event=1)
-bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Report, event=2)
+bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Advertising_Reports, event=2)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Connection_Update_Complete, event=3)
 bind_layers(HCI_Event_LE_Meta, HCI_LE_Meta_Long_Term_Key_Request, event=5)
 
 bind_layers(EIR_Hdr, EIR_Flags, type=0x01)
 bind_layers(EIR_Hdr, EIR_IncompleteList16BitServiceUUIDs, type=0x02)
 bind_layers(EIR_Hdr, EIR_CompleteList16BitServiceUUIDs, type=0x03)
+bind_layers(EIR_Hdr, EIR_IncompleteList128BitServiceUUIDs, type=0x06)
+bind_layers(EIR_Hdr, EIR_CompleteList128BitServiceUUIDs, type=0x07)
 bind_layers(EIR_Hdr, EIR_ShortenedLocalName, type=0x08)
 bind_layers(EIR_Hdr, EIR_CompleteLocalName, type=0x09)
 bind_layers(EIR_Hdr, EIR_Device_ID, type=0x10)
 bind_layers(EIR_Hdr, EIR_TX_Power_Level, type=0x0a)
+bind_layers(EIR_Hdr, EIR_ServiceData16BitUUID, type=0x16)
 bind_layers(EIR_Hdr, EIR_Manufacturer_Specific_Data, type=0xff)
 bind_layers(EIR_Hdr, EIR_Raw)
 
@@ -955,21 +1157,21 @@ bind_layers(ATT_Hdr, ATT_Read_By_Type_Request, opcode=0x8)
 bind_layers(ATT_Hdr, ATT_Read_By_Type_Response, opcode=0x9)
 bind_layers(ATT_Hdr, ATT_Read_Request, opcode=0xa)
 bind_layers(ATT_Hdr, ATT_Read_Response, opcode=0xb)
-bind_layers( ATT_Hdr, ATT_Read_Blob_Request, opcode=0xc)
-bind_layers( ATT_Hdr, ATT_Read_Blob_Response, opcode=0xd)
-bind_layers( ATT_Hdr, ATT_Read_Multiple_Request, opcode=0xe)
-bind_layers( ATT_Hdr, ATT_Read_Multiple_Response, opcode=0xf)
+bind_layers(ATT_Hdr, ATT_Read_Blob_Request, opcode=0xc)
+bind_layers(ATT_Hdr, ATT_Read_Blob_Response, opcode=0xd)
+bind_layers(ATT_Hdr, ATT_Read_Multiple_Request, opcode=0xe)
+bind_layers(ATT_Hdr, ATT_Read_Multiple_Response, opcode=0xf)
 bind_layers(ATT_Hdr, ATT_Read_By_Group_Type_Request, opcode=0x10)
 bind_layers(ATT_Hdr, ATT_Read_By_Group_Type_Response, opcode=0x11)
 bind_layers(ATT_Hdr, ATT_Write_Request, opcode=0x12)
 bind_layers(ATT_Hdr, ATT_Write_Response, opcode=0x13)
-bind_layers( ATT_Hdr, ATT_Prepare_Write_Request, opcode=0x16)
-bind_layers( ATT_Hdr, ATT_Prepare_Write_Response, opcode=0x17)
-bind_layers( ATT_Hdr, ATT_Execute_Write_Request, opcode=0x18)
-bind_layers( ATT_Hdr, ATT_Execute_Write_Response, opcode=0x19)
+bind_layers(ATT_Hdr, ATT_Prepare_Write_Request, opcode=0x16)
+bind_layers(ATT_Hdr, ATT_Prepare_Write_Response, opcode=0x17)
+bind_layers(ATT_Hdr, ATT_Execute_Write_Request, opcode=0x18)
+bind_layers(ATT_Hdr, ATT_Execute_Write_Response, opcode=0x19)
 bind_layers(ATT_Hdr, ATT_Write_Command, opcode=0x52)
 bind_layers(ATT_Hdr, ATT_Handle_Value_Notification, opcode=0x1b)
-bind_layers( ATT_Hdr, ATT_Handle_Value_Indication, opcode=0x1d)
+bind_layers(ATT_Hdr, ATT_Handle_Value_Indication, opcode=0x1d)
 bind_layers(L2CAP_Hdr, SM_Hdr, cid=6)
 bind_layers(SM_Hdr, SM_Pairing_Request, sm_command=1)
 bind_layers(SM_Hdr, SM_Pairing_Response, sm_command=2)
@@ -982,6 +1184,10 @@ bind_layers(SM_Hdr, SM_Identity_Information, sm_command=8)
 bind_layers(SM_Hdr, SM_Identity_Address_Information, sm_command=9)
 bind_layers(SM_Hdr, SM_Signing_Information, sm_command=0x0a)
 
+
+###########
+# Sockets #
+###########
 
 class BluetoothSocketError(BaseException):
     pass
@@ -1024,23 +1230,23 @@ class BluetoothHCISocket(SuperSocket):
         if WINDOWS:
             warning("Not available on Windows")
             return
-        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)  # noqa: E501
         s.setsockopt(socket.SOL_HCI, socket.HCI_DATA_DIR, 1)
         s.setsockopt(socket.SOL_HCI, socket.HCI_TIME_STAMP, 1)
-        s.setsockopt(socket.SOL_HCI, socket.HCI_FILTER, struct.pack("IIIh2x", 0xffffffff, 0xffffffff, 0xffffffff, 0))  # type mask, event mask, event mask, opcode
+        s.setsockopt(socket.SOL_HCI, socket.HCI_FILTER, struct.pack("IIIh2x", 0xffffffff, 0xffffffff, 0xffffffff, 0))  # type mask, event mask, event mask, opcode  # noqa: E501
         s.bind((iface,))
         self.ins = self.outs = s
 #        s.connect((peer,0))
 
-    def recv(self, x):
+    def recv(self, x=MTU):
         return HCI_Hdr(self.ins.recv(x))
 
 
-class sockaddr_hci(Structure):
+class sockaddr_hci(ctypes.Structure):
     _fields_ = [
-        ("sin_family", c_ushort),
-        ("hci_dev", c_ushort),
-        ("hci_channel", c_ushort),
+        ("sin_family", ctypes.c_ushort),
+        ("hci_dev", ctypes.c_ushort),
+        ("hci_channel", ctypes.c_ushort),
     ]
 
 
@@ -1051,24 +1257,26 @@ class BluetoothUserSocket(SuperSocket):
         if WINDOWS:
             warning("Not available on Windows")
             return
-        # s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+        # s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)  # noqa: E501
         # s.bind((0,1))
 
         # yeah, if only
         # thanks to Python's weak ass socket and bind implementations, we have
         # to call down into libc with ctypes
 
-        sockaddr_hcip = POINTER(sockaddr_hci)
-        cdll.LoadLibrary("libc.so.6")
-        libc = CDLL("libc.so.6")
+        sockaddr_hcip = ctypes.POINTER(sockaddr_hci)
+        ctypes.cdll.LoadLibrary("libc.so.6")
+        libc = ctypes.CDLL("libc.so.6")
 
         socket_c = libc.socket
-        socket_c.argtypes = (c_int, c_int, c_int)
-        socket_c.restype = c_int
+        socket_c.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_int)
+        socket_c.restype = ctypes.c_int
 
         bind = libc.bind
-        bind.argtypes = (c_int, POINTER(sockaddr_hci), c_int)
-        bind.restype = c_int
+        bind.argtypes = (ctypes.c_int,
+                         ctypes.POINTER(sockaddr_hci),
+                         ctypes.c_int)
+        bind.restype = ctypes.c_int
 
         ########
         # actual code
@@ -1097,10 +1305,10 @@ class BluetoothUserSocket(SuperSocket):
             r = self.recv()
             if r.type == 0x04 and r.code == 0xe and r.opcode == opcode:
                 if r.status != 0:
-                    raise BluetoothCommandError("Command %x failed with %x" % (opcode, r.status))
+                    raise BluetoothCommandError("Command %x failed with %x" % (opcode, r.status))  # noqa: E501
                 return r
 
-    def recv(self, x=512):
+    def recv(self, x=MTU):
         return HCI_Hdr(self.ins.recv(x))
 
     def readable(self, timeout=0):

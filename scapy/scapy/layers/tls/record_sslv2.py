@@ -10,9 +10,8 @@ import struct
 
 from scapy.config import conf
 from scapy.error import log_runtime
-from scapy.compat import *
-from scapy.fields import *
-from scapy.packet import *
+from scapy.compat import orb, raw
+from scapy.packet import Raw
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.record import _TLSMsgListField, TLS
 from scapy.layers.tls.handshake_sslv2 import _sslv2_handshake_cls
@@ -140,7 +139,7 @@ class SSLv2(TLS):
         is_mac_ok = self._sslv2_mac_verify(cfrag + pad, mac)
         if not is_mac_ok:
             pkt_info = self.firstlayer().summary()
-            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)
+            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
 
         reconstructed_body = mac + cfrag + pad
         return hdr + reconstructed_body + r
@@ -172,7 +171,9 @@ class SSLv2(TLS):
                           tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
-            except:
+            except Exception:
+                if conf.debug_dissect:
+                    raise
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
@@ -230,10 +231,10 @@ class SSLv2(TLS):
         efrag = self._tls_encrypt(mfrag)
 
         if self.len is not None:
-            l = self.len
+            tmp_len = self.len
             if not self.with_padding:
-                l |= 0x8000
-            hdr = struct.pack("!H", l) + hdr[2:]
+                tmp_len |= 0x8000
+            hdr = struct.pack("!H", tmp_len) + hdr[2:]
         else:
             # Update header with the length of TLSCiphertext.fragment
             msglen_new = len(efrag)

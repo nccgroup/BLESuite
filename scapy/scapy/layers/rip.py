@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -7,17 +7,19 @@
 RIP (Routing Information Protocol).
 """
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers, bind_bottom_up
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+    IPField, IntEnumField, IntField, ShortEnumField, ShortField, \
+    StrFixedLenField, StrLenField
 from scapy.layers.inet import UDP
 
 
 class RIP(Packet):
     name = "RIP header"
     fields_desc = [
-        ByteEnumField("cmd", 1, {1: "req", 2: "resp", 3: "traceOn", 4: "traceOff",
-                                 5: "sun", 6: "trigReq", 7: "trigResp", 8: "trigAck",
-                                 9: "updateReq", 10: "updateResp", 11: "updateAck"}),
+        ByteEnumField("cmd", 1, {1: "req", 2: "resp", 3: "traceOn", 4: "traceOff",  # noqa: E501
+                                 5: "sun", 6: "trigReq", 7: "trigResp", 8: "trigAck",  # noqa: E501
+                                 9: "updateReq", 10: "updateResp", 11: "updateAck"}),  # noqa: E501
         ByteField("version", 1),
         ShortField("null", 0),
     ]
@@ -45,7 +47,7 @@ class RIPAuth(Packet):
     name = "RIP authentication"
     fields_desc = [
         ShortEnumField("AF", 0xffff, {0xffff: "Auth"}),
-        ShortEnumField("authtype", 2, {1: "md5authdata", 2: "simple", 3: "md5"}),
+        ShortEnumField("authtype", 2, {1: "md5authdata", 2: "simple", 3: "md5"}),  # noqa: E501
         ConditionalField(StrFixedLenField("password", None, 16),
                          lambda pkt: pkt.authtype == 2),
         ConditionalField(ShortField("digestoffset", 0),

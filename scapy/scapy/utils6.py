@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -14,17 +14,21 @@ import operator
 import random
 import socket
 import struct
+import time
+import re
 
 from scapy.config import conf
 import scapy.consts
 from scapy.base_classes import Gen
-from scapy.data import *
-from scapy.utils import *
-from scapy.compat import *
-from scapy.pton_ntop import *
+from scapy.data import IPV6_ADDR_GLOBAL, IPV6_ADDR_LINKLOCAL, \
+    IPV6_ADDR_SITELOCAL, IPV6_ADDR_LOOPBACK, IPV6_ADDR_UNICAST,\
+    IPV6_ADDR_MULTICAST, IPV6_ADDR_6TO4, IPV6_ADDR_UNSPECIFIED
+from scapy.utils import strxor
+from scapy.compat import orb, chb
+from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.volatile import RandMAC
-from scapy.error import warning
-from functools import reduce
+from scapy.error import warning, Scapy_Exception
+from functools import reduce, cmp_to_key
 from scapy.modules.six.moves import range, zip
 
 
@@ -218,25 +222,30 @@ def in6_mactoifaceid(mac, ulbit=None):
     return eui64.upper()
 
 
-def in6_ifaceidtomac(ifaceid):  # TODO: finish commenting function behavior
+def in6_ifaceidtomac(ifaceid):
     """
     Extract the mac address from provided iface ID. Iface ID is provided
     in printable format ("XXXX:XXFF:FEXX:XXXX", eventually compressed). None
     is returned on error.
     """
     try:
+        # Set ifaceid to a binary form
         ifaceid = inet_pton(socket.AF_INET6, "::" + ifaceid)[8:16]
-    except:
+    except Exception:
         return None
-    if ifaceid[3:5] != b'\xff\xfe':
+    if ifaceid[3:5] != b'\xff\xfe':  # Check for burned-in MAC address
         return None
+
+    # Unpacking and converting first byte of faceid to MAC address equivalent
     first = struct.unpack("B", ifaceid[:1])[0]
     ulbit = 2 * [1, '-', 0][first & 0x02]
     first = struct.pack("B", ((first & 0xFD) | ulbit))
+    # Split into two vars to remove the \xff\xfe bytes
     oui = first + ifaceid[1:3]
     end = ifaceid[5:]
-    l = ["%.02x" % orb(x) for x in list(oui + end)]
-    return ":".join(l)
+    # Convert and reconstruct into a MAC Address
+    mac_bytes = ["%.02x" % orb(x) for x in list(oui + end)]
+    return ":".join(mac_bytes)
 
 
 def in6_addrtomac(addr):
@@ -297,7 +306,7 @@ def in6_getLinkScopedMcastAddr(addr, grpid=None, scope=2):
         if not in6_islladdr(addr):
             return None
         addr = inet_pton(socket.AF_INET6, addr)
-    except:
+    except Exception:
         warning("in6_getLinkScopedMcastPrefix(): Invalid address provided")
         return None
 
@@ -310,14 +319,14 @@ def in6_getLinkScopedMcastAddr(addr, grpid=None, scope=2):
             if len(grpid) == 8:
                 try:
                     grpid = int(grpid, 16) & 0xffffffff
-                except:
-                    warning("in6_getLinkScopedMcastPrefix(): Invalid group id provided")
+                except Exception:
+                    warning("in6_getLinkScopedMcastPrefix(): Invalid group id provided")  # noqa: E501
                     return None
             elif len(grpid) == 4:
                 try:
                     grpid = struct.unpack("!I", grpid)[0]
-                except:
-                    warning("in6_getLinkScopedMcastPrefix(): Invalid group id provided")
+                except Exception:
+                    warning("in6_getLinkScopedMcastPrefix(): Invalid group id provided")  # noqa: E501
                     return None
         grpid = struct.pack("!I", grpid)
 
@@ -338,7 +347,7 @@ def in6_get6to4Prefix(addr):
     try:
         addr = inet_pton(socket.AF_INET, addr)
         addr = inet_ntop(socket.AF_INET6, b'\x20\x02' + addr + b'\x00' * 10)
-    except:
+    except Exception:
         return None
     return addr
 
@@ -350,7 +359,7 @@ def in6_6to4ExtractAddr(addr):
     """
     try:
         addr = inet_pton(socket.AF_INET6, addr)
-    except:
+    except Exception:
         return None
     if addr[:2] != b" \x02":
         return None
@@ -421,11 +430,11 @@ def in6_getRandomizedIfaceId(ifaceid, previous=None):
     return (s1, s2)
 
 
-_rfc1924map = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
-               'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-               'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
-               'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
-               'y', 'z', '!', '#', '$', '%', '&', '(', ')', '*', '+', '-', ';', '<', '=',
+_rfc1924map = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',  # noqa: E501
+               'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',  # noqa: E501
+               'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',  # noqa: E501
+               'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',  # noqa: E501
+               'y', 'z', '!', '#', '$', '%', '&', '(', ')', '*', '+', '-', ';', '<', '=',  # noqa: E501
                '>', '?', '@', '^', '_', '`', '{', '|', '}', '~']
 
 
@@ -458,7 +467,7 @@ def in6_ptoc(addr):
     """
     try:
         d = struct.unpack("!IIII", inet_pton(socket.AF_INET6, addr))
-    except:
+    except Exception:
         return None
     res = 0
     m = [2**96, 2**64, 2**32, 1]
@@ -589,7 +598,7 @@ def in6_cidr2mask(m):
 
     """
     if m > 128 or m < 0:
-        raise Scapy_Exception("value provided to in6_cidr2mask outside [0, 128] domain (%d)" % m)
+        raise Scapy_Exception("value provided to in6_cidr2mask outside [0, 128] domain (%d)" % m)  # noqa: E501
 
     t = []
     for i in range(0, 4):
@@ -611,7 +620,7 @@ def in6_getnsma(a):
     return r
 
 
-def in6_getnsmac(a):  # return multicast Ethernet address associated with multicast v6 destination
+def in6_getnsmac(a):  # return multicast Ethernet address associated with multicast v6 destination  # noqa: E501
     """
     Return the multicast mac address associated with provided
     IPv6 address. Passed address must be in network format.
@@ -826,7 +835,7 @@ def in6_isvalid(address):
     try:
         socket.inet_pton(socket.AF_INET6, address)
         return True
-    except:
+    except Exception:
         return False
 
 
@@ -840,7 +849,7 @@ class Net6(Gen):  # syntax ex. fec0::/126
 
         tmp = net.split('/') + ["128"]
         if not self.ip_regex.match(net):
-            tmp[0] = socket.getaddrinfo(tmp[0], None, socket.AF_INET6)[0][-1][0]
+            tmp[0] = socket.getaddrinfo(tmp[0], None, socket.AF_INET6)[0][-1][0]  # noqa: E501
 
         netmask = int(tmp[1])
         self.net = inet_pton(socket.AF_INET6, tmp[0])
@@ -882,7 +891,7 @@ class Net6(Gen):  # syntax ex. fec0::/126
     def __str__(self):
         try:
             return next(self.__iter__())
-        except StopIteration:
+        except (StopIteration, RuntimeError):
             return None
 
     def __eq__(self, other):

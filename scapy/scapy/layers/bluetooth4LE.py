@@ -6,22 +6,34 @@
 
 """Bluetooth 4LE layer"""
 
-import socket
 import struct
 
 from scapy.compat import orb, chb
 from scapy.config import conf
-from scapy.data import MTU, DLT_BLUETOOTH_LE_LL
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.ppi import PPI
+from scapy.data import DLT_BLUETOOTH_LE_LL, DLT_BLUETOOTH_LE_LL_WITH_PHDR
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
+    Field, FlagsField, LEIntField, LEShortEnumField, LEShortField, MACField, \
+    PacketListField, X3BytesField, XBitField, XByteField, XIntField, \
+    XShortField, XLEIntField, XLEShortField
+from scapy.layers.dot11 import _dbmField
+from scapy.layers.ppi import PPI, addPPIType
+
+from scapy.layers.bluetooth import EIR_Hdr, L2CAP_Hdr
 
 from scapy.modules.six.moves import range
+from scapy.utils import mac2str, str2mac
+
+####################
+# Transport Layers #
+####################
 
 
 class BTLE_PPI(Packet):
     name = "BTLE PPI header"
     fields_desc = [
+        LEShortField("pfh_type", 30006),
+        LEShortField("pfh_datalen", 24),
         ByteField("btle_version", 0),
         LEShortField("btle_channel", None),
         ByteField("btle_clkn_high", None),
@@ -33,13 +45,27 @@ class BTLE_PPI(Packet):
     ]
 
 
-class PPI_FieldHeader(Packet):
-    name = "PPI Field header"
+class BTLE_RF(Packet):
+    name = "BTLE RF info header"
     fields_desc = [
-        LEShortField("pfh_type", None),
-        LEShortField("pfh_datalen", None)
+        ByteField("rf_channel", 0),
+        _dbmField("signal", -256),
+        _dbmField("noise", -256),
+        ByteField("access_address_offenses", 0),
+        XLEIntField("reference_access_address", 0),
+        FlagsField("flags", 0, -16, [
+            "dewhitened", "sig_power_valid", "noise_power_valid",
+            "decrypted", "reference_access_address_valid",
+            "access_address_offenses_valid", "channel_aliased",
+            "res1", "res2", "res3", "crc_checked", "crc_valid",
+            "mic_checked", "mic_valid", "res4", "res5"
+        ])
     ]
 
+
+##########
+# Fields #
+##########
 
 class BDAddrField(MACField):
     def __init__(self, name, default, resolve=False):
@@ -64,8 +90,12 @@ class BTLEChanMapField(XByteField):
         return s + struct.pack(self.fmt, self.i2m(pkt, val))[:5]
 
     def getfield(self, pkt, s):
-        return s[5:], self.m2i(pkt, struct.unpack(self.fmt, s[:5] + b"\x00\x00\x00")[0])
+        return s[5:], self.m2i(pkt, struct.unpack(self.fmt, s[:5] + b"\x00\x00\x00")[0])  # noqa: E501
 
+
+##########
+# Layers #
+##########
 
 class BTLE(Packet):
     name = "BT4LE"
@@ -96,7 +126,7 @@ class BTLE(Packet):
                 v |= 0x80
             return v
 
-        state = swapbits(init & 0xff) + (swapbits((init >> 8) & 0xff) << 8) + (swapbits((init >> 16) & 0xff) << 16)
+        state = swapbits(init & 0xff) + (swapbits((init >> 8) & 0xff) << 8) + (swapbits((init >> 16) & 0xff) << 16)  # noqa: E501
         lfsr_mask = 0x5a6000
         for i in (orb(x) for x in pdu):
             for j in range(8):
@@ -120,11 +150,8 @@ class BTLE(Packet):
         return s
 
     def pre_dissect(self, s):
+        # move crc
         return s[:4] + s[-3:] + s[4:-3]
-
-    def post_dissection(self, pkt):
-        if isinstance(pkt, PPI):
-            pkt.notdecoded = PPI_FieldHeader(pkt.notdecoded)
 
     def hashret(self):
         return struct.pack("!L", self.access_addr)
@@ -136,8 +163,8 @@ class BTLE_ADV(Packet):
         BitEnumField("RxAdd", 0, 1, {0: "public", 1: "random"}),
         BitEnumField("TxAdd", 0, 1, {0: "public", 1: "random"}),
         BitField("RFU", 0, 2),  # Unused
-        BitEnumField("PDU_type", 0, 4, {0: "ADV_IND", 1: "ADV_DIRECT_IND", 2: "ADV_NONCONN_IND", 3: "SCAN_REQ",
-                                        4: "SCAN_RSP", 5: "CONNECT_REQ", 6: "ADV_SCAN_IND"}),
+        BitEnumField("PDU_type", 0, 4, {0: "ADV_IND", 1: "ADV_DIRECT_IND", 2: "ADV_NONCONN_IND", 3: "SCAN_REQ",  # noqa: E501
+                                        4: "SCAN_RSP", 5: "CONNECT_REQ", 6: "ADV_SCAN_IND"}),  # noqa: E501
         BitField("unused", 0, 2),  # Unused
         XBitField("Length", None, 6),
     ]
@@ -146,10 +173,10 @@ class BTLE_ADV(Packet):
         p += pay
         if self.Length is None:
             if len(pay) > 2:
-                l = len(pay)
+                l_pay = len(pay)
             else:
-                l = 0
-            p = p[:1] + chb(l & 0x3f) + p[2:]
+                l_pay = 0
+            p = p[:1] + chb(l_pay & 0x3f) + p[2:]
         if not isinstance(self.underlayer, BTLE):
             self.add_underlayer(BTLE)
         return p
@@ -162,7 +189,7 @@ class BTLE_DATA(Packet):
         BitField("MD", 0, 1),
         BitField("SN", 0, 1),
         BitField("NESN", 0, 1),
-        BitField("LLID", 0, 2),
+        BitEnumField("LLID", 0, 2, {1: "continue", 2: "start", 3: "control"}),
         ByteField("len", None),
     ]
 
@@ -172,31 +199,19 @@ class BTLE_DATA(Packet):
         return p + pay
 
 
-class BTLE_AdvData(Packet):
-    name = "BTLE advertising data"
-    fields_desc = [
-        FieldLenField("len", None, length_of="data", fmt="B"),
-        ByteField("type", 0),
-        StrLenField("data", None, length_from=lambda pkt: pkt.len)
-    ]
-
-    def extract_padding(self, s):
-        return b'', s
-
-
 class BTLE_ADV_IND(Packet):
     name = "BTLE ADV_IND"
     fields_desc = [
         BDAddrField("AdvA", None),
-        PacketListField("data", None, BTLE_AdvData)
+        PacketListField("data", None, EIR_Hdr)
     ]
 
 
 class BTLE_ADV_DIRECT_IND(Packet):
     name = "BTLE ADV_DIRECT_IND"
     fields_desc = [
-        BDAddrField("AdvA", ""),
-        BDAddrField("InitA", "")
+        BDAddrField("AdvA", None),
+        BDAddrField("InitA", None)
     ]
 
 
@@ -211,8 +226,8 @@ class BTLE_ADV_SCAN_IND(BTLE_ADV_IND):
 class BTLE_SCAN_REQ(Packet):
     name = "BTLE scan request"
     fields_desc = [
-        BDAddrField("ScanA", ""),
-        BDAddrField("AdvA", "")
+        BDAddrField("ScanA", None),
+        BDAddrField("AdvA", None)
     ]
 
     def answers(self, other):
@@ -222,8 +237,8 @@ class BTLE_SCAN_REQ(Packet):
 class BTLE_SCAN_RSP(Packet):
     name = "BTLE scan response"
     fields_desc = [
-        BDAddrField("AdvA", ""),
-        PacketListField("data", None, BTLE_AdvData)
+        BDAddrField("AdvA", None),
+        PacketListField("data", None, EIR_Hdr)
     ]
 
     def answers(self, other):
@@ -233,8 +248,8 @@ class BTLE_SCAN_RSP(Packet):
 class BTLE_CONNECT_REQ(Packet):
     name = "BTLE connect request"
     fields_desc = [
-        BDAddrField("InitA", ""),
-        BDAddrField("AdvA", ""),
+        BDAddrField("InitA", None),
+        BDAddrField("AdvA", None),
         # LLDATA
         XIntField("AA", 0x00),
         X3BytesField("crc_init", 0x0),
@@ -249,6 +264,24 @@ class BTLE_CONNECT_REQ(Packet):
     ]
 
 
+BTLE_Versions = {
+    7: '4.1'
+}
+BTLE_Corp_IDs = {
+    0xf: 'Broadcom Corporation'
+}
+
+
+class CtrlPDU(Packet):
+    name = "CtrlPDU"
+    fields_desc = [
+        XByteField("optcode", 0),
+        ByteEnumField("version", 0, BTLE_Versions),
+        LEShortEnumField("Company", 0, BTLE_Corp_IDs),
+        XShortField("subversion", 0)
+    ]
+
+
 bind_layers(BTLE, BTLE_ADV, access_addr=0x8E89BED6)
 bind_layers(BTLE, BTLE_DATA)
 bind_layers(BTLE_ADV, BTLE_ADV_IND, PDU_type=0)
@@ -259,7 +292,14 @@ bind_layers(BTLE_ADV, BTLE_SCAN_RSP, PDU_type=4)
 bind_layers(BTLE_ADV, BTLE_CONNECT_REQ, PDU_type=5)
 bind_layers(BTLE_ADV, BTLE_ADV_SCAN_IND, PDU_type=6)
 
+bind_layers(BTLE_DATA, L2CAP_Hdr, LLID=2)  # BTLE_DATA / L2CAP_Hdr / ATT_Hdr
+# LLID=1 -> Continue
+bind_layers(BTLE_DATA, CtrlPDU, LLID=3)
+
 conf.l2types.register(DLT_BLUETOOTH_LE_LL, BTLE)
+conf.l2types.register(DLT_BLUETOOTH_LE_LL_WITH_PHDR, BTLE_RF)
+
+bind_layers(BTLE_RF, BTLE)
 
 bind_layers(PPI, BTLE, dlt=147)
-bind_layers(PPI_FieldHeader, BTLE_PPI, pfh_type=30006)
+addPPIType(30006, BTLE_PPI)

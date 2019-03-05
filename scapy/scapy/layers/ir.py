@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -7,8 +7,9 @@
 IrDA infrared data communication.
 """
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitEnumField, ByteEnumField, StrField, XBitField, \
+    XByteField, XIntField, XShortField
 from scapy.layers.l2 import CookedLinux
 
 

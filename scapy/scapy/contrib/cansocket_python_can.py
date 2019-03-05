@@ -1,8 +1,10 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.description = Python-Can CANSocket
+# scapy.contrib.status = loads
 
 """
 Python-CAN CANSocket Wrapper.
@@ -26,19 +28,23 @@ class CANSocketTimeoutElapsed(Scapy_Exception):
 
 
 class CANSocket(SuperSocket):
+    read_allowed_exceptions = (CANSocketTimeoutElapsed,)
     desc = "read/write packets at a given CAN interface " \
            "using a python-can bus object"
 
-    def __init__(self, iface=None):
+    def __init__(self, iface=None, timeout=1.0, basecls=CAN):
+
         if issubclass(type(iface), can_BusABC):
+            self.basecls = basecls
             self.iface = iface
             self.ins = None
             self.outs = None
+            self.timeout = timeout
         else:
             warning("Provide a python-can interface")
 
     def recv(self):
-        msg = self.iface.recv(timeout=1)
+        msg = self.iface.recv(timeout=self.timeout)
         if msg is None:
             raise CANSocketTimeoutElapsed
         frame = CAN(identifier=msg.arbitration_id,
@@ -50,6 +56,8 @@ class CANSocket(SuperSocket):
             frame.flags |= 0x2
         if msg.is_extended_id:
             frame.flags |= 0x4
+        if self.basecls is not CAN:
+            frame = self.basecls(bytes(frame))
         frame.time = msg.timestamp
         return frame
 
@@ -63,22 +71,30 @@ class CANSocket(SuperSocket):
                               is_error_frame=x.flags == 0x1,
                               arbitration_id=x.identifier,
                               dlc=x.length,
-                              data=x.data)
+                              data=bytes(x)[8:])
             return self.iface.send(msg)
         except can_Error as ex:
             raise ex
 
     @staticmethod
-    def is_python_can_socket():
-        """Function used to determine if a socket is a python-can CANSocket.
-        This is used from sendrecv, to determine if a non standard _get_pkt()
-        and _select() function needs to be used."""
-        return True
+    def select(sockets, remain=None):
+        """This function is called during sendrecv() routine to select
+        the available sockets.
+        """
+        if remain is not None:
+            max_timeout = remain / len(sockets)
+            for s in sockets:
+                if s.timeout > max_timeout:
+                    s.timeout = max_timeout
+
+        # python-can sockets aren't selectable, so we return all of them
+        # sockets, None (means use the socket's recv() )
+        return sockets, None
 
 
 @conf.commands.register
-def srcan(pkt, iface=None, *args, **kargs):
-    s = CANSocket(iface)
+def srcan(pkt, iface=None, basecls=CAN, *args, **kargs):
+    s = CANSocket(iface, basecls=basecls)
     a, b = s.sr(pkt, *args, **kargs)
     s.close()
     return a, b

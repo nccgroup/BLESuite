@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -7,8 +7,9 @@
 Mobile IP.
 """
 
-from scapy.fields import *
-from scapy.packet import *
+from scapy.fields import ByteEnumField, ByteField, IPField, LongField, \
+    ShortField, XByteField
+from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.layers.inet import IP, UDP
 
 

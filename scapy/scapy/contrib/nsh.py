@@ -12,7 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = NSH Protocol
+# scapy.contrib.description = Network Services Headers (NSH)
 # scapy.contrib.status = loads
 
 from scapy.all import bind_layers
@@ -63,7 +63,7 @@ class NSH(Packet):
         BitField('Reserved', 0, 6),
         BitFieldLenField('Len', None, 6,
                          count_of='ContextHeaders',
-                         adjust=lambda pkt, x: 6 if pkt.MDType == 1 else x + 2),
+                         adjust=lambda pkt, x: 6 if pkt.MDType == 1 else x + 2),  # noqa: E501
         ByteEnumField('MDType', 1, {1: 'Fixed Length',
                                     2: 'Variable Length'}),
         ByteEnumField('NextProto', 3, {1: 'IPv4',

@@ -14,7 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = EIGRP
+# flake8: noqa: E501
+
+# scapy.contrib.description = Enhanced Interior Gateway Routing Protocol (EIGRP)
 # scapy.contrib.status = loads
 
 """
@@ -42,13 +44,23 @@
         http://trac.secdev.org/scapy/ticket/18
     - IOS / EIGRP Version Representation FIX by Dirk Loss
 """
-
 from __future__ import absolute_import
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet import IP
-from scapy.layers.inet6 import *
+import socket
+import struct
+
+from scapy.packet import Packet
+from scapy.fields import StrField, IPField, XShortField, FieldLenField, \
+    StrLenField, IntField, ByteEnumField, ByteField, ConditionalField, \
+    FlagsField, IP6Field, PacketField, PacketListField, ShortEnumField, \
+    ShortField, StrFixedLenField, ThreeBytesField
+from scapy.layers.inet import IP, checksum, bind_layers
+from scapy.layers.inet6 import IPv6
 from scapy.compat import chb, raw
+from scapy.config import conf
+from scapy.utils import inet_aton, inet_ntoa
+from scapy.pton_ntop import inet_ntop, inet_pton
+from scapy.error import warning, Scapy_Exception
+from scapy.volatile import RandShort, RandString
 
 
 class EigrpIPField(StrField, IPField):
@@ -72,50 +84,50 @@ class EigrpIPField(StrField, IPField):
 
     def i2m(self, pkt, x):
         x = inet_aton(x)
-        l = self.length_from(pkt)
+        tmp_len = self.length_from(pkt)
 
-        if l <= 8:
+        if tmp_len <= 8:
             return x[:1]
-        elif l <= 16:
+        elif tmp_len <= 16:
             return x[:2]
-        elif l <= 24:
+        elif tmp_len <= 24:
             return x[:3]
         else:
             return x
 
     def m2i(self, pkt, x):
-        l = self.length_from(pkt)
+        tmp_len = self.length_from(pkt)
 
-        if l <= 8:
+        if tmp_len <= 8:
             x += b"\x00\x00\x00"
-        elif l <= 16:
+        elif tmp_len <= 16:
             x += b"\x00\x00"
-        elif l <= 24:
+        elif tmp_len <= 24:
             x += b"\x00"
 
         return inet_ntoa(x)
 
-    def prefixlen_to_bytelen(self, l):
-        if l <= 8:
-            l = 1
-        elif l <= 16:
-            l = 2
-        elif l <= 24:
-            l = 3
+    def prefixlen_to_bytelen(self, tmp_len):
+        if tmp_len <= 8:
+            tmp_len = 1
+        elif tmp_len <= 16:
+            tmp_len = 2
+        elif tmp_len <= 24:
+            tmp_len = 3
         else:
-            l = 4
+            tmp_len = 4
 
-        return l
+        return tmp_len
 
     def i2len(self, pkt, x):
-        l = self.length_from(pkt)
-        l = self.prefixlen_to_bytelen(l)
-        return l
+        tmp_len = self.length_from(pkt)
+        tmp_len = self.prefixlen_to_bytelen(tmp_len)
+        return tmp_len
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        l = self.prefixlen_to_bytelen(l)
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = self.length_from(pkt)
+        tmp_len = self.prefixlen_to_bytelen(tmp_len)
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def randval(self):
         return IPField.randval(self)
@@ -147,40 +159,40 @@ class EigrpIP6Field(StrField, IP6Field):
 
     def i2m(self, pkt, x):
         x = inet_pton(socket.AF_INET6, x)
-        l = self.length_from(pkt)
-        l = self.prefixlen_to_bytelen(l)
+        tmp_len = self.length_from(pkt)
+        tmp_len = self.prefixlen_to_bytelen(tmp_len)
 
-        return x[:l]
+        return x[:tmp_len]
 
     def m2i(self, pkt, x):
-        l = self.length_from(pkt)
+        tmp_len = self.length_from(pkt)
 
-        prefixlen = self.prefixlen_to_bytelen(l)
-        if l > 128:
-            warning("EigrpIP6Field: Prefix length is > 128. Dissection of this packet will fail")
+        prefixlen = self.prefixlen_to_bytelen(tmp_len)
+        if tmp_len > 128:
+            warning("EigrpIP6Field: Prefix length is > 128. Dissection of this packet will fail")  # noqa: E501
         else:
             pad = b"\x00" * (16 - prefixlen)
             x += pad
 
         return inet_ntop(socket.AF_INET6, x)
 
-    def prefixlen_to_bytelen(self, l):
-        l = l // 8
+    def prefixlen_to_bytelen(self, plen):
+        plen = plen // 8
 
-        if l < 16:
-            l += 1
+        if plen < 16:
+            plen += 1
 
-        return l
+        return plen
 
     def i2len(self, pkt, x):
-        l = self.length_from(pkt)
-        l = self.prefixlen_to_bytelen(l)
-        return l
+        tmp_len = self.length_from(pkt)
+        tmp_len = self.prefixlen_to_bytelen(tmp_len)
+        return tmp_len
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        l = self.prefixlen_to_bytelen(l)
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = self.length_from(pkt)
+        tmp_len = self.prefixlen_to_bytelen(tmp_len)
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def randval(self):
         return IP6Field.randval(self)
@@ -189,8 +201,8 @@ class EigrpIP6Field(StrField, IP6Field):
 class EIGRPGeneric(Packet):
     name = "EIGRP Generic TLV"
     fields_desc = [XShortField("type", 0x0000),
-                   FieldLenField("len", None, "value", "!H", adjust=lambda pkt, x: x + 4),
-                   StrLenField("value", b"\x00", length_from=lambda pkt: pkt.len - 4)]
+                   FieldLenField("len", None, "value", "!H", adjust=lambda pkt, x: x + 4),  # noqa: E501
+                   StrLenField("value", b"\x00", length_from=lambda pkt: pkt.len - 4)]  # noqa: E501
 
     def guess_payload_class(self, p):
         return conf.padding_layer
@@ -218,12 +230,12 @@ class EIGRPParam(EIGRPGeneric):
 class EIGRPAuthData(EIGRPGeneric):
     name = "EIGRP Authentication Data"
     fields_desc = [XShortField("type", 0x0002),
-                   FieldLenField("len", None, "authdata", "!H", adjust=lambda pkt, x: x + 24),
+                   FieldLenField("len", None, "authdata", "!H", adjust=lambda pkt, x: x + 24),  # noqa: E501
                    ShortEnumField("authtype", 2, {2: "MD5"}),
                    ShortField("keysize", None),
                    IntField("keyid", 1),
                    StrFixedLenField("nullpad", b"\x00" * 12, 12),
-                   StrLenField("authdata", RandString(16), length_from=lambda pkt: pkt.keysize)
+                   StrLenField("authdata", RandString(16), length_from=lambda pkt: pkt.keysize)  # noqa: E501
                    ]
 
     def post_build(self, p, pay):
@@ -231,7 +243,7 @@ class EIGRPAuthData(EIGRPGeneric):
 
         if self.keysize is None:
             keysize = len(self.authdata)
-            p = p[:6] + chb((keysize >> 8) & 0xff) + chb(keysize & 0xff) + p[8:]
+            p = p[:6] + chb((keysize >> 8) & 0xff) + chb(keysize & 0xff) + p[8:]  # noqa: E501
 
         return p
 
@@ -251,8 +263,9 @@ class EIGRPSeq(EIGRPGeneric):
         p += pay
 
         if self.len is None:
-            l = len(p)
-            p = p[:2] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[4:]
+            tmp_len = len(p)
+            tmp_p = p[:2] + chb((tmp_len >> 8) & 0xff)
+            p = tmp_p + chb(tmp_len & 0xff) + p[4:]
 
         return p
 
@@ -265,7 +278,7 @@ class ShortVersionField(ShortField):
         except TypeError:
             return "unknown"
         else:
-            # We print a leading 'v' so that these values don't look like floats
+            # We print a leading 'v' so that these values don't look like floats  # noqa: E501
             return "v%s.%s" % (major, minor)
 
     def h2i(self, pkt, x):
@@ -283,6 +296,8 @@ class ShortVersionField(ShortField):
         elif isinstance(x, int) and 0 <= x <= 65535:
             return x
         else:
+            if not hasattr(self, "default"):
+                return x
             if self.default is not None:
                 warning("set value to default. Format of %r is invalid" % x)
                 return self.default
@@ -310,9 +325,9 @@ class EIGRPNms(EIGRPGeneric):
                    ]
 
 
-# Don't get confused by the term "receive-only". This flag is always set, when you configure
-# one of the stub options. It's also the only flag set, when you configure "eigrp stub receive-only".
-_EIGRP_STUB_FLAGS = ["connected", "static", "summary", "receive-only", "redistributed", "leak-map"]
+# Don't get confused by the term "receive-only". This flag is always set, when you configure  # noqa: E501
+# one of the stub options. It's also the only flag set, when you configure "eigrp stub receive-only".  # noqa: E501
+_EIGRP_STUB_FLAGS = ["connected", "static", "summary", "receive-only", "redistributed", "leak-map"]  # noqa: E501
 
 
 class EIGRPStub(EIGRPGeneric):
@@ -327,7 +342,7 @@ class EIGRPStub(EIGRPGeneric):
 class EIGRPIntRoute(EIGRPGeneric):
     name = "EIGRP Internal Route"
     fields_desc = [XShortField("type", 0x0102),
-                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 25),
+                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 25),  # noqa: E501
                    IPField("nexthop", "192.168.0.0"),
                    IntField("delay", 128000),
                    IntField("bandwidth", 256),
@@ -337,7 +352,7 @@ class EIGRPIntRoute(EIGRPGeneric):
                    ByteField("load", 0),
                    XShortField("reserved", 0),
                    ByteField("prefixlen", 24),
-                   EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen),
+                   EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen),  # noqa: E501
                    ]
 
 
@@ -361,14 +376,14 @@ _EIGRP_EXTROUTE_FLAGS = ["external", "candidate-default"]
 class EIGRPExtRoute(EIGRPGeneric):
     name = "EIGRP External Route"
     fields_desc = [XShortField("type", 0x0103),
-                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 45),
+                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 45),  # noqa: E501
                    IPField("nexthop", "192.168.0.0"),
                    IPField("originrouter", "192.168.0.1"),
                    IntField("originasn", 0),
                    IntField("tag", 0),
                    IntField("externalmetric", 0),
                    ShortField("reserved", 0),
-                   ByteEnumField("extprotocolid", 3, _EIGRP_EXTERNAL_PROTOCOL_ID),
+                   ByteEnumField("extprotocolid", 3, _EIGRP_EXTERNAL_PROTOCOL_ID),  # noqa: E501
                    FlagsField("flags", 0, 8, _EIGRP_EXTROUTE_FLAGS),
                    IntField("delay", 0),
                    IntField("bandwidth", 256),
@@ -378,14 +393,14 @@ class EIGRPExtRoute(EIGRPGeneric):
                    ByteField("load", 0),
                    XShortField("reserved2", 0),
                    ByteField("prefixlen", 24),
-                   EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen)
+                   EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen)  # noqa: E501
                    ]
 
 
 class EIGRPv6IntRoute(EIGRPGeneric):
     name = "EIGRP for IPv6 Internal Route"
     fields_desc = [XShortField("type", 0x0402),
-                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 37),
+                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 37),  # noqa: E501
                    IP6Field("nexthop", "::"),
                    IntField("delay", 128000),
                    IntField("bandwidth", 256000),
@@ -395,21 +410,21 @@ class EIGRPv6IntRoute(EIGRPGeneric):
                    ByteField("load", 0),
                    XShortField("reserved", 0),
                    ByteField("prefixlen", 16),
-                   EigrpIP6Field("dst", "2001::", length_from=lambda pkt: pkt.prefixlen)
+                   EigrpIP6Field("dst", "2001::", length_from=lambda pkt: pkt.prefixlen)  # noqa: E501
                    ]
 
 
 class EIGRPv6ExtRoute(EIGRPGeneric):
     name = "EIGRP for IPv6 External Route"
     fields_desc = [XShortField("type", 0x0403),
-                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 57),
+                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 57),  # noqa: E501
                    IP6Field("nexthop", "::"),
                    IPField("originrouter", "192.168.0.1"),
                    IntField("originasn", 0),
                    IntField("tag", 0),
                    IntField("externalmetric", 0),
                    ShortField("reserved", 0),
-                   ByteEnumField("extprotocolid", 3, _EIGRP_EXTERNAL_PROTOCOL_ID),
+                   ByteEnumField("extprotocolid", 3, _EIGRP_EXTERNAL_PROTOCOL_ID),  # noqa: E501
                    FlagsField("flags", 0, 8, _EIGRP_EXTROUTE_FLAGS),
                    IntField("delay", 0),
                    IntField("bandwidth", 256000),
@@ -419,7 +434,7 @@ class EIGRPv6ExtRoute(EIGRPGeneric):
                    ByteField("load", 1),
                    XShortField("reserved2", 0),
                    ByteField("prefixlen", 8),
-                   EigrpIP6Field("dst", "::", length_from=lambda pkt: pkt.prefixlen)
+                   EigrpIP6Field("dst", "::", length_from=lambda pkt: pkt.prefixlen)  # noqa: E501
                    ]
 
 
@@ -514,7 +529,3 @@ class EIGRP(Packet):
 
 bind_layers(IP, EIGRP, proto=88)
 bind_layers(IPv6, EIGRP, nh=88)
-
-if __name__ == "__main__":
-    from scapy.main import interact
-    interact(mydict=globals(), mybanner="EIGRP")

@@ -1,27 +1,23 @@
 #! /usr/bin/env python
 
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
 from __future__ import print_function
 import os
 import subprocess
-import itertools
 import collections
 import time
 import scapy.modules.six as six
 from threading import Lock, Thread
-import scapy.utils
 
 from scapy.automaton import Message, select_objects, SelectableObject
 from scapy.consts import WINDOWS
 from scapy.error import log_interactive, warning
 from scapy.config import conf
 from scapy.utils import get_temp_file, do_graph
-
-import scapy.arch
 
 
 class PipeEngine(SelectableObject):
@@ -136,12 +132,12 @@ class PipeEngine(SelectableObject):
                             sources = self.active_sources - exhausted
                             sources.add(self)
                         else:
-                            warning("Unknown internal pipe engine command: %r. Ignoring." % cmd)
+                            warning("Unknown internal pipe engine command: %r. Ignoring." % cmd)  # noqa: E501
                     elif fd in sources:
                         try:
                             fd.deliver()
                         except Exception as e:
-                            log_interactive.exception("piping from %s failed: %s" % (fd.name, e))
+                            log_interactive.exception("piping from %s failed: %s" % (fd.name, e))  # noqa: E501
                         else:
                             if fd.exhausted():
                                 exhausted.add(fd)
@@ -176,7 +172,7 @@ class PipeEngine(SelectableObject):
                     self.thread.join()
                     try:
                         self.thread_lock.release()
-                    except:
+                    except Exception:
                         pass
                 else:
                     warning("Pipe engine thread not running")
@@ -295,34 +291,34 @@ class Pipe(six.with_metaclass(_PipeMeta, _ConnectorLogic)):
         if self.sources or self.sinks:
             s += " %s" % ct.punct("[")
             if self.sources:
-                s += "%s%s" % (ct.punct(",").join(ct.field_name(s.name) for s in self.sources),
+                s += "%s%s" % (ct.punct(",").join(ct.field_name(s.name) for s in self.sources),  # noqa: E501
                                ct.field_value(">"))
             s += ct.layer_name("#")
             if self.sinks:
                 s += "%s%s" % (ct.field_value(">"),
-                               ct.punct(",").join(ct.field_name(s.name) for s in self.sinks))
+                               ct.punct(",").join(ct.field_name(s.name) for s in self.sinks))  # noqa: E501
             s += ct.punct("]")
 
         if self.high_sources or self.high_sinks:
             s += " %s" % ct.punct("[")
             if self.high_sources:
-                s += "%s%s" % (ct.punct(",").join(ct.field_name(s.name) for s in self.high_sources),
+                s += "%s%s" % (ct.punct(",").join(ct.field_name(s.name) for s in self.high_sources),  # noqa: E501
                                ct.field_value(">>"))
             s += ct.layer_name("#")
             if self.high_sinks:
                 s += "%s%s" % (ct.field_value(">>"),
-                               ct.punct(",").join(ct.field_name(s.name) for s in self.high_sinks))
+                               ct.punct(",").join(ct.field_name(s.name) for s in self.high_sinks))  # noqa: E501
             s += ct.punct("]")
 
         if self.trigger_sources or self.trigger_sinks:
             s += " %s" % ct.punct("[")
             if self.trigger_sources:
-                s += "%s%s" % (ct.punct(",").join(ct.field_name(s.name) for s in self.trigger_sources),
+                s += "%s%s" % (ct.punct(",").join(ct.field_name(s.name) for s in self.trigger_sources),  # noqa: E501
                                ct.field_value("^"))
             s += ct.layer_name("#")
             if self.trigger_sinks:
                 s += "%s%s" % (ct.field_value("^"),
-                               ct.punct(",").join(ct.field_name(s.name) for s in self.trigger_sinks))
+                               ct.punct(",").join(ct.field_name(s.name) for s in self.trigger_sinks))  # noqa: E501
             s += ct.punct("]")
 
         s += ct.punct(">")
@@ -463,7 +459,7 @@ class ConsoleSink(Sink):
 
 
 class RawConsoleSink(Sink):
-    """Print messages on low and high entries
+    """Print messages on low and high entries, using os.write
      +-------+
   >>-|--.    |->>
      | write |
@@ -555,7 +551,7 @@ class TermSink(Sink):
      +-------+
 """
 
-    def __init__(self, name=None, keepterm=True, newlines=True, openearly=True):
+    def __init__(self, name=None, keepterm=True, newlines=True, openearly=True):  # noqa: E501
         Sink.__init__(self, name=name)
         self.keepterm = keepterm
         self.newlines = newlines
@@ -571,8 +567,8 @@ class TermSink(Sink):
             open(self.__f, "a").close()
             self.name = "Scapy" if self.name is None else self.name
             # Start a powershell in a new window and print the PID
-            cmd = "$app = Start-Process PowerShell -ArgumentList '-command &{$host.ui.RawUI.WindowTitle=\\\"%s\\\";Get-Content \\\"%s\\\" -wait}' -passthru; echo $app.Id" % (self.name, self.__f.replace("\\", "\\\\"))
-            proc = subprocess.Popen([conf.prog.powershell, cmd], stdout=subprocess.PIPE)
+            cmd = "$app = Start-Process PowerShell -ArgumentList '-command &{$host.ui.RawUI.WindowTitle=\\\"%s\\\";Get-Content \\\"%s\\\" -wait}' -passthru; echo $app.Id" % (self.name, self.__f.replace("\\", "\\\\"))  # noqa: E501
+            proc = subprocess.Popen([conf.prog.powershell, cmd], stdout=subprocess.PIPE)  # noqa: E501
             output, _ = proc.communicate()
             # This is the process PID
             self.pid = int(output)
@@ -604,7 +600,7 @@ class TermSink(Sink):
             # http://code.activestate.com/recipes/347462-terminating-a-subprocess-on-windows/
             import ctypes
             PROCESS_TERMINATE = 1
-            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_TERMINATE, False, self.pid)
+            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_TERMINATE, False, self.pid)  # noqa: E501
             ctypes.windll.kernel32.TerminateProcess(handle, -1)
             ctypes.windll.kernel32.CloseHandle(handle)
 
@@ -638,7 +634,7 @@ class TermSink(Sink):
 
 
 class QueueSink(Sink):
-    """Collect messages from high and low entries and queue them. Messages are unqueued with the .recv() method.
+    """Collect messages from high and low entries and queue them. Messages are unqueued with the .recv() method.  # noqa: E501
      +-------+
   >>-|--.    |->>
      | queue |
@@ -701,7 +697,7 @@ class UpDrain(Drain):
 
 
 class DownDrain(Drain):
-    """Repeat messages from high entry to low exit
+    r"""Repeat messages from high entry to low exit
      +-------+
   >>-|--.    |->>
      |   \   |

@@ -14,18 +14,16 @@
 
 # author: <jellch@harris.com>
 
-# scapy.contrib.description = PPI CACE
+# scapy.contrib.description = Parallel Peripheral Interface CACE (PPI CACE)
 # scapy.contrib.status = loads
 
 """
 CACE PPI types
 """
-import logging
-import struct
-from scapy.config import conf
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.l2 import Ether
+
+from scapy.packet import Packet
+from scapy.fields import ByteField, Field, FlagsField, LELongField, \
+    LEShortField
 from scapy.layers.ppi import addPPIType
 
 PPI_DOT11COMMON = 2
@@ -75,7 +73,7 @@ class PPITSFTField(LELongField):
         return tout
 
 
-_PPIDot11CommonChFlags = ['', '', '', '', 'Turbo', 'CCK', 'OFDM', '2GHz', '5GHz',
+_PPIDot11CommonChFlags = ['', '', '', '', 'Turbo', 'CCK', 'OFDM', '2GHz', '5GHz',  # noqa: E501
                           'PassiveOnly', 'Dynamic CCK-OFDM', 'GSFK']
 
 _PPIDot11CommonPktFlags = ['FCS', 'TSFT_ms', 'FCS_Invalid', 'PHY_Error']

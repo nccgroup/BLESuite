@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -39,15 +39,16 @@ def _version_from_git_describe():
         >>> _version_from_git_describe()
         '2.3.2.dev346'
     """
-    if not os.path.isdir(os.path.join(os.path.dirname(_SCAPY_PKG_DIR), '.git')):
+    if not os.path.isdir(os.path.join(os.path.dirname(_SCAPY_PKG_DIR), '.git')):  # noqa: E501
         raise ValueError('not in scapy git repo')
 
-    p = subprocess.Popen(['git', 'describe', '--always'], cwd=_SCAPY_PKG_DIR,
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen(['git', 'describe', '--always'],
+                               cwd=_SCAPY_PKG_DIR,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    out, err = p.communicate()
+    out, err = process.communicate()
 
-    if p.returncode == 0:
+    if process.returncode == 0:
         tag = out.decode().strip()
         match = re.match('^v?(.+?)-(\\d+)-g[a-f0-9]+$', tag)
         if match:
@@ -57,7 +58,7 @@ def _version_from_git_describe():
             # just remove the 'v' prefix
             return re.sub('^v', '', tag)
     else:
-        raise subprocess.CalledProcessError(p.returncode, err)
+        raise subprocess.CalledProcessError(process.returncode, err)
 
 
 def _version():
@@ -66,16 +67,16 @@ def _version():
         tag = _version_from_git_describe()
         # successfully read the tag from git, write it in VERSION for
         # installation and/or archive generation.
-        with open(version_file, 'w') as f:
-            f.write(tag)
+        with open(version_file, 'w') as fdesc:
+            fdesc.write(tag)
         return tag
-    except:
+    except Exception:
         # failed to read the tag from git, try to read it from a VERSION file
         try:
-            with open(version_file, 'r') as f:
-                tag = f.read()
+            with open(version_file, 'r') as fdsec:
+                tag = fdsec.read()
             return tag
-        except:
+        except Exception:
             # Rely on git archive "export-subst" git attribute.
             # See 'man gitattributes' for more details.
             git_archive_id = '$Format:%h %d$'
@@ -89,7 +90,7 @@ def _version():
                 return 'unknown.version'
 
 
-VERSION = _version()
+VERSION = __version__ = _version()
 
 if __name__ == "__main__":
     from scapy.main import interact

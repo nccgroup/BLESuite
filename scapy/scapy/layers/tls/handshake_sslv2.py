@@ -8,7 +8,7 @@ SSLv2 handshake fields & logic.
 
 import struct
 
-from scapy.compat import chb
+from scapy.config import conf
 from scapy.error import log_runtime, warning
 from scapy.utils import randstring
 from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
@@ -119,7 +119,7 @@ class SSLv2ClientHello(_SSLv2Handshake):
                    _SSLv2CipherSuitesField("ciphers",
                                            [SSL_CK_DES_192_EDE3_CBC_WITH_MD5],
                                            _tls_cipher_suites,
-                                           length_from=lambda pkt: pkt.cipherslen),
+                                           length_from=lambda pkt: pkt.cipherslen),  # noqa: E501
                    XStrLenField("challenge", b"",
                                 length_from=lambda pkt:pkt.challengelen)]
 
@@ -136,14 +136,16 @@ class SSLv2ClientHello(_SSLv2Handshake):
 
 class _SSLv2CertDataField(StrLenField):
     def getfield(self, pkt, s):
-        l = 0
+        tmp_len = 0
         if self.length_from is not None:
-            l = self.length_from(pkt)
+            tmp_len = self.length_from(pkt)
         try:
-            certdata = Cert(s[:l])
-        except:
-            certdata = s[:l]
-        return s[l:], certdata
+            certdata = Cert(s[:tmp_len])
+        except Exception:
+            if conf.debug_dissector:
+                raise
+            certdata = s[:tmp_len]
+        return s[tmp_len:], certdata
 
     def i2len(self, pkt, i):
         if isinstance(i, Cert):
@@ -177,7 +179,7 @@ class SSLv2ServerHello(_SSLv2Handshake):
                    _SSLv2CertDataField("cert", b"",
                                        length_from=lambda pkt: pkt.certlen),
                    _SSLv2CipherSuitesField("ciphers", [], _tls_cipher_suites,
-                                           length_from=lambda pkt: pkt.cipherslen),
+                                           length_from=lambda pkt: pkt.cipherslen),  # noqa: E501
                    XStrLenField("connection_id", b"",
                                 length_from=lambda pkt: pkt.connection_idlen)]
 
@@ -250,7 +252,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
                    XStrLenField("clearkey", "",
                                 length_from=lambda pkt: pkt.clearkeylen),
                    _SSLv2EncryptedKeyField("encryptedkey", "",
-                                           length_from=lambda pkt: pkt.encryptedkeylen),
+                                           length_from=lambda pkt: pkt.encryptedkeylen),  # noqa: E501
                    XStrLenField("keyarg", "",
                                 length_from=lambda pkt: pkt.keyarglen)]
 
@@ -337,9 +339,9 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
             self.keyarglen = len(keyarg)
         keyarglen = struct.pack("!H", self.keyarglen)
 
-        s = (chb(pkt[0]) + cipher
-             + clearkeylen + encryptedkeylen + keyarglen
-             + clearkey + encryptedkey + keyarg)
+        s = (pkt[:1] + cipher +
+             clearkeylen + encryptedkeylen + keyarglen +
+             clearkey + encryptedkey + keyarg)
         return s + pay
 
     def tls_session_update(self, msg_str):
@@ -403,7 +405,7 @@ class SSLv2ServerVerify(_SSLv2Handshake):
         if s.sslv2_challenge is not None:
             if self.challenge != s.sslv2_challenge:
                 pkt_info = pkt.firstlayer().summary()
-                log_runtime.info("TLS: invalid ServerVerify received [%s]", pkt_info)
+                log_runtime.info("TLS: invalid ServerVerify received [%s]", pkt_info)  # noqa: E501
 
 
 ###############################################################################
@@ -480,7 +482,7 @@ class SSLv2ClientCertificate(_SSLv2Handshake):
             sig_test = self.responsedata._verify_sig(m, s.client_certs[0])
             if not sig_test:
                 pkt_info = self.firstlayer().summary()
-                log_runtime.info("TLS: invalid client CertificateVerify signature [%s]", pkt_info)
+                log_runtime.info("TLS: invalid client CertificateVerify signature [%s]", pkt_info)  # noqa: E501
 
     def tls_session_update(self, msg_str):
         super(SSLv2ClientCertificate, self).tls_session_update(msg_str)
@@ -512,7 +514,7 @@ class SSLv2ClientFinished(_SSLv2Handshake):
         if s.sslv2_connection_id is not None:
             if self.connection_id != s.sslv2_connection_id:
                 pkt_info = pkt.firstlayer().summary()
-                log_runtime.info("TLS: invalid client Finished received [%s]", pkt_info)
+                log_runtime.info("TLS: invalid client Finished received [%s]", pkt_info)  # noqa: E501
 
 
 class SSLv2ServerFinished(_SSLv2Handshake):

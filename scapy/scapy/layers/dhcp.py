@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -9,26 +9,31 @@ DHCP (Dynamic Host Configuration Protocol) and BOOTP
 
 from __future__ import absolute_import
 from __future__ import print_function
-from collections import Iterable
+try:
+    from collections.abc import Iterable
+except ImportError:
+    # For backwards compatibility.  This was removed in Python 3.8
+    from collections import Iterable
 import random
 import struct
 
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net
-from scapy.data import chb, orb, raw
+from scapy.compat import chb, orb, bytes_encode
 from scapy.fields import ByteEnumField, ByteField, Field, FieldListField, \
     FlagsField, IntField, IPField, ShortField, StrField
 from scapy.layers.inet import UDP, IP
 from scapy.layers.l2 import Ether
-from scapy.packet import bind_layers, bind_bottom_up
+from scapy.packet import bind_layers, bind_bottom_up, Packet
 from scapy.utils import atol, itom, ltoa, sane
 from scapy.volatile import RandBin, RandField, RandNum, RandNumExpo
 
 from scapy.arch import get_if_raw_hwaddr
-from scapy.sendrecv import *
+from scapy.sendrecv import srp1, sendp
 from scapy.error import warning
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+from scapy.config import conf
 
 dhcpmagic = b"c\x82Sc"
 
@@ -59,7 +64,7 @@ class BOOTP(Packet):
 
     def extract_padding(self, s):
         if self.options[:len(dhcpmagic)] == dhcpmagic:
-            # set BOOTP options to DHCP magic cookie and make rest a payload of DHCP options
+            # set BOOTP options to DHCP magic cookie and make rest a payload of DHCP options  # noqa: E501
             payload = self.options[len(dhcpmagic):]
             self.options = self.options[:len(dhcpmagic)]
             return payload, None
@@ -67,7 +72,7 @@ class BOOTP(Packet):
             return b"", None
 
     def hashret(self):
-        return struct.pack("L", self.xid)
+        return struct.pack("!I", self.xid)
 
     def answers(self, other):
         if not isinstance(other, BOOTP):
@@ -115,14 +120,31 @@ DHCPOptions = {
     7: IPField("log_server", "0.0.0.0"),
     8: IPField("cookie_server", "0.0.0.0"),
     9: IPField("lpr_server", "0.0.0.0"),
+    10: IPField("impress-servers", "0.0.0.0"),
+    11: IPField("resource-location-servers", "0.0.0.0"),
     12: "hostname",
+    13: ShortField("boot-size", 1000),
     14: "dump_path",
     15: "domain",
+    16: IPField("swap-server", "0.0.0.0"),
     17: "root_disk_path",
+    18: "extensions-path",
+    19: ByteField("ip-forwarding", 0),
+    20: ByteField("non-local-source-routing", 0),
+    21: IPField("policy-filter", "0.0.0.0"),
     22: "max_dgram_reass_size",
     23: "default_ttl",
     24: "pmtu_timeout",
+    25: ShortField("path-mtu-plateau-table", 1000),
+    26: ShortField("interface-mtu", 50),
+    27: ByteField("all-subnets-local", 0),
     28: IPField("broadcast_address", "0.0.0.0"),
+    29: ByteField("perform-mask-discovery", 0),
+    30: ByteField("mask-supplier", 0),
+    31: ByteField("router-discovery", 0),
+    32: IPField("router-solicitation-address", "0.0.0.0"),
+    33: IPField("static-routes", "0.0.0.0"),
+    34: ByteField("trailer-encapsulation", 0),
     35: "arp_cache_timeout",
     36: "ether_or_dot3",
     37: "tcp_ttl",
@@ -134,20 +156,27 @@ DHCPOptions = {
     43: "vendor_specific",
     44: IPField("NetBIOS_server", "0.0.0.0"),
     45: IPField("NetBIOS_dist_server", "0.0.0.0"),
+    46: ByteField("static-routes", 100),
+    47: "netbios-scope",
+    48: IPField("font-servers", "0.0.0.0"),
+    49: IPField("x-display-manager", "0.0.0.0"),
     50: IPField("requested_addr", "0.0.0.0"),
     51: IntField("lease_time", 43200),
+    52: ByteField("dhcp-option-overload", 100),
     53: ByteEnumField("message-type", 1, DHCPTypes),
     54: IPField("server_id", "0.0.0.0"),
-    55: _DHCPParamReqFieldListField("param_req_list", [], ByteField("opcode", 0), length_from=lambda x: 1),
+    55: _DHCPParamReqFieldListField("param_req_list", [], ByteField("opcode", 0), length_from=lambda x: 1),  # noqa: E501
     56: "error_message",
     57: ShortField("max_dhcp_size", 1500),
     58: IntField("renewal_time", 21600),
     59: IntField("rebinding_time", 37800),
     60: "vendor_class_id",
     61: "client_id",
-
+    62: "nwip-domain-name",
     64: "NISplus_domain",
     65: IPField("NISplus_server", "0.0.0.0"),
+    67: StrField("boot-file-name", ""),
+    68: IPField("mobile-ip-home-agent", "0.0.0.0"),
     69: IPField("SMTP_server", "0.0.0.0"),
     70: IPField("POP3_server", "0.0.0.0"),
     71: IPField("NNTP_server", "0.0.0.0"),
@@ -156,7 +185,11 @@ DHCPOptions = {
     74: IPField("IRC_server", "0.0.0.0"),
     75: IPField("StreetTalk_server", "0.0.0.0"),
     76: "StreetTalk_Dir_Assistance",
+    81: "client_FQDN",
     82: "relay_agent_Information",
+    91: IntField("client-last-transaction-time", 1000),
+    92: IPField("associated-ip", "0.0.0.0"),
+    118: IPField("subnet-selection", "0.0.0.0"),
     255: "end"
 }
 
@@ -204,7 +237,7 @@ class DHCPOptionsField(StrField):
         s = []
         for v in x:
             if isinstance(v, tuple) and len(v) >= 2:
-                if v[0] in DHCPRevOptions and isinstance(DHCPRevOptions[v[0]][1], Field):
+                if v[0] in DHCPRevOptions and isinstance(DHCPRevOptions[v[0]][1], Field):  # noqa: E501
                     f = DHCPRevOptions[v[0]][1]
                     vv = ",".join(f.i2repr(pkt, val) for val in v[1:])
                 else:
@@ -248,7 +281,7 @@ class DHCPOptionsField(StrField):
                         while left:
                             left, val = f.getfield(pkt, left)
                             lval.append(val)
-                    except:
+                    except Exception:
                         opt.append(x)
                         break
                     else:
@@ -275,7 +308,9 @@ class DHCPOptionsField(StrField):
                 elif name in DHCPRevOptions:
                     onum, f = DHCPRevOptions[name]
                     if f is not None:
-                        lval = [f.addfield(pkt, b"", f.any2i(pkt, val)) for val in lval]
+                        lval = (f.addfield(pkt, b"", f.any2i(pkt, val)) for val in lval)  # noqa: E501
+                    else:
+                        lval = (bytes_encode(x) for x in lval)
                     oval = b"".join(lval)
                 else:
                     warning("Unknown field option %s", name)
@@ -291,7 +326,7 @@ class DHCPOptionsField(StrField):
             elif isinstance(o, int):
                 s += chb(o) + b"\0"
             elif isinstance(o, (str, bytes)):
-                s += raw(o)
+                s += bytes_encode(o)
             else:
                 warning("Malformed option %s", o)
         return s
@@ -310,13 +345,14 @@ bind_layers(BOOTP, DHCP, options=b'c\x82Sc')
 
 @conf.commands.register
 def dhcp_request(iface=None, **kargs):
+    """Send a DHCP discover request and return the answer"""
     if conf.checkIPaddr != 0:
-        warning("conf.checkIPaddr is not 0, I may not be able to match the answer")
+        warning("conf.checkIPaddr is not 0, I may not be able to match the answer")  # noqa: E501
     if iface is None:
         iface = conf.iface
     fam, hw = get_if_raw_hwaddr(iface)
-    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff") / IP(src="0.0.0.0", dst="255.255.255.255") / UDP(sport=68, dport=67)
-                / BOOTP(chaddr=hw) / DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)
+    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff") / IP(src="0.0.0.0", dst="255.255.255.255") / UDP(sport=68, dport=67) /  # noqa: E501
+                BOOTP(chaddr=hw) / DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)  # noqa: E501
 
 
 class BOOTP_am(AnsweringMachine):
@@ -324,7 +360,7 @@ class BOOTP_am(AnsweringMachine):
     filter = "udp and port 68 and port 67"
     send_function = staticmethod(sendp)
 
-    def parse_options(self, pool=Net("192.168.1.128/25"), network="192.168.1.0/24", gw="192.168.1.1",
+    def parse_options(self, pool=Net("192.168.1.128/25"), network="192.168.1.0/24", gw="192.168.1.1",  # noqa: E501
                       domain="localnet", renewal_time=60, lease_time=1800):
         self.domain = domain
         netw, msk = (network.split("/") + ["32"])[:2]
@@ -336,7 +372,7 @@ class BOOTP_am(AnsweringMachine):
         if isinstance(pool, six.string_types):
             pool = Net(pool)
         if isinstance(pool, Iterable):
-            pool = [k for k in pool if k not in [gw, self.network, self.broadcast]]
+            pool = [k for k in pool if k not in [gw, self.network, self.broadcast]]  # noqa: E501
             pool.reverse()
         if len(pool) == 1:
             pool, = pool
@@ -357,7 +393,7 @@ class BOOTP_am(AnsweringMachine):
         print("Reply %s to %s" % (reply.getlayer(IP).dst, reply.dst))
 
     def make_reply(self, req):
-        mac = req.src
+        mac = req[Ether].src
         if isinstance(self.pool, list):
             if mac not in self.leases:
                 self.leases[mac] = self.pool.pop()
@@ -372,7 +408,7 @@ class BOOTP_am(AnsweringMachine):
         repb.ciaddr = self.gw
         repb.giaddr = self.gw
         del(repb.payload)
-        rep = Ether(dst=mac) / IP(dst=ip) / UDP(sport=req.dport, dport=req.sport) / repb
+        rep = Ether(dst=mac) / IP(dst=ip) / UDP(sport=req.dport, dport=req.sport) / repb  # noqa: E501
         return rep
 
 
@@ -384,7 +420,7 @@ class DHCP_am(BOOTP_am):
         if DHCP in req:
             dhcp_options = [(op[0], {1: 2, 3: 5}.get(op[1], op[1]))
                             for op in req[DHCP].options
-                            if isinstance(op, tuple) and op[0] == "message-type"]
+                            if isinstance(op, tuple) and op[0] == "message-type"]  # noqa: E501
             dhcp_options += [("server_id", self.gw),
                              ("domain", self.domain),
                              ("router", self.gw),

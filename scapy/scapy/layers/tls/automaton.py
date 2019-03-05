@@ -10,6 +10,7 @@ The _TLSAutomaton class provides methods common to both TLS client and server.
 import struct
 
 from scapy.automaton import Automaton
+from scapy.config import conf
 from scapy.error import log_interactive
 from scapy.packet import Raw
 from scapy.layers.tls.basefields import _tls_type
@@ -45,7 +46,7 @@ class _TLSAutomaton(Automaton):
     same flight, as with ClientFlight2.
 
     However, note that the flights from the opposite side may be spread wildly
-    accross TLS records and TCP packets. This is why we use a 'get_next_msg'
+    across TLS records and TCP packets. This is why we use a 'get_next_msg'
     method for feeding a list of received messages, 'buffer_in'. Raw data
     which has not yet been interpreted as a TLS record is kept in 'remain_in'.
     """
@@ -117,7 +118,7 @@ class _TLSAutomaton(Automaton):
                         grablen = 2 + 0 + ((byte0 & 0x7f) << 8) + byte1
                     else:
                         grablen = 2 + 1 + ((byte0 & 0x3f) << 8) + byte1
-            elif not is_sslv2_msg and grablen == 5 and len(self.remain_in) >= 5:
+            elif not is_sslv2_msg and grablen == 5 and len(self.remain_in) >= 5:  # noqa: E501
                 grablen = struct.unpack('!H', self.remain_in[3:5])[0] + 5
 
             if grablen == len(self.remain_in):
@@ -129,7 +130,7 @@ class _TLSAutomaton(Automaton):
                     retry -= 1
                 else:
                     self.remain_in += tmp
-            except:
+            except Exception:
                 self.vprint("Could not join host ! Retrying...")
                 retry -= 1
 
@@ -222,4 +223,7 @@ class _TLSAutomaton(Automaton):
 
     def vprint(self, s=""):
         if self.verbose:
-            log_interactive.info("> %s", s)
+            if conf.interactive:
+                log_interactive.info("> %s", s)
+            else:
+                print("> %s" % s)

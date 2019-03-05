@@ -1,14 +1,14 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
 """
-Cisco Skinny protocol.
+Skinny Call Control Protocol (SCCP)
 """
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import LEIntField, LEIntEnumField
 from scapy.layers.inet import TCP
 
 # shamelessly ripped from Ethereal dissector

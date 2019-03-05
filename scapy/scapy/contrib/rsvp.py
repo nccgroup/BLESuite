@@ -14,13 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = RSVP
+# scapy.contrib.description = Resource Reservation Protocol (RSVP)
 # scapy.contrib.status = loads
 
 from scapy.compat import chb
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet import IP
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
+    IPField, ShortField, StrLenField, XByteField, XShortField
+from scapy.layers.inet import IP, checksum
 
 rsvpmsgtypes = {0x01: "Path",
                 0x02: "Reservation request",
@@ -45,8 +46,9 @@ class RSVP(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.Length is None:
-            l = len(p)
-            p = p[:6] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[8:]
+            tmp_len = len(p)
+            tmp_p = p[:6] + chb((tmp_len >> 8) & 0xff) + chb(tmp_len & 0xff)
+            p = tmp_p + p[8:]
         if self.chksum is None:
             ck = checksum(p)
             p = p[:2] + chb(ck >> 8) + chb(ck & 0xff) + p[4:]
@@ -155,7 +157,7 @@ class RSVP_Object(Packet):
 class RSVP_Data(Packet):
     name = "Data"
     overload_fields = {RSVP_Object: {"Class": 0x01}}
-    fields_desc = [StrLenField("Data", "", length_from=lambda pkt:pkt.underlayer.Length - 4)]
+    fields_desc = [StrLenField("Data", "", length_from=lambda pkt:pkt.underlayer.Length - 4)]  # noqa: E501
 
     def default_payload_class(self, payload):
         return RSVP_Object
@@ -189,14 +191,14 @@ class RSVP_SenderTSPEC(Packet):
                    ByteField("Srv_hdr", 1),
                    ByteField("reserve2", 0),
                    ShortField("Srv_Length", 4),
-                   StrLenField("Tokens", "", length_from=lambda pkt:pkt.underlayer.Length - 12)]
+                   StrLenField("Tokens", "", length_from=lambda pkt:pkt.underlayer.Length - 12)]  # noqa: E501
 
     def default_payload_class(self, payload):
         return RSVP_Object
 
 
 class RSVP_LabelReq(Packet):
-    name = "Lable Req"
+    name = "Label Req"
     overload_fields = {RSVP_Object: {"Class": 0x13}}
     fields_desc = [ShortField("reserve", 1),
                    ShortField("L3PID", 1)]
@@ -212,7 +214,7 @@ class RSVP_SessionAttrb(Packet):
                    ByteField("Hold_priority", 1),
                    ByteField("flags", 1),
                    FieldLenField("Name_length", None, length_of="Name"),
-                   StrLenField("Name", "", length_from=lambda pkt:pkt.Name_length),
+                   StrLenField("Name", "", length_from=lambda pkt:pkt.Name_length),  # noqa: E501
                    ]
 
     def default_payload_class(self, payload):

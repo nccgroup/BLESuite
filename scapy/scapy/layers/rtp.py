@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -7,8 +7,9 @@
 RTP (Real-time Transport Protocol).
 """
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitEnumField, BitField, BitFieldLenField, \
+    FieldLenField, FieldListField, IntField, ShortField
 
 _rtp_payload_types = {
     # http://www.iana.org/assignments/rtp-parameters
@@ -29,8 +30,8 @@ _rtp_payload_types = {
 class RTPExtension(Packet):
     name = "RTP extension"
     fields_desc = [ShortField("header_id", 0),
-                   FieldLenField("header_len", None, count_of="header", fmt="H"),
-                   FieldListField('header', [], IntField("hdr", 0), count_from=lambda pkt: pkt.header_len)]
+                   FieldLenField("header_len", None, count_of="header", fmt="H"),  # noqa: E501
+                   FieldListField('header', [], IntField("hdr", 0), count_from=lambda pkt: pkt.header_len)]  # noqa: E501
 
 
 class RTP(Packet):
@@ -44,7 +45,7 @@ class RTP(Packet):
                    ShortField('sequence', 0),
                    IntField('timestamp', 0),
                    IntField('sourcesync', 0),
-                   FieldListField('sync', [], IntField("id", 0), count_from=lambda pkt:pkt.numsync)]
+                   FieldListField('sync', [], IntField("id", 0), count_from=lambda pkt:pkt.numsync)]  # noqa: E501
 
 
 bind_layers(RTP, RTPExtension, extension=1)

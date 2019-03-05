@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -27,12 +27,12 @@ from scapy.error import warning
 from scapy.layers.inet import IP, TCP, UDP, ICMP, UDPerror, IPerror
 from scapy.packet import NoPayload
 from scapy.sendrecv import sr
-from scapy.compat import *
+from scapy.compat import plain_str, raw
 import scapy.modules.six as six
 
 
 if WINDOWS:
-    conf.nmap_base = os.environ["ProgramFiles"] + "\\nmap\\nmap-os-fingerprints"
+    conf.nmap_base = os.environ["ProgramFiles"] + "\\nmap\\nmap-os-fingerprints"  # noqa: E501
 else:
     conf.nmap_base = "/usr/share/nmap/nmap-os-fingerprints"
 

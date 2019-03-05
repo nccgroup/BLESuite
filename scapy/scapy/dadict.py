@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -11,7 +11,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from scapy.error import Scapy_Exception
 import scapy.modules.six as six
-from scapy.compat import *
+from scapy.compat import plain_str
 
 ###############################
 #  Direct Access dictionary   #
@@ -21,7 +21,13 @@ from scapy.compat import *
 def fixname(x):
     if x and str(x[0]) in "0123456789":
         x = "n_" + x
-    return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")
+    return x.translate(
+        "________________________________________________"
+        "0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______"
+        "abcdefghijklmnopqrstuvwxyz____________________________"
+        "______________________________________________________"
+        "___________________________________________________"
+    )
 
 
 class DADict_Exception(Scapy_Exception):
@@ -55,11 +61,11 @@ class DADict:
                 print("%10s = %r" % (k, getattr(self, k)))
 
     def __repr__(self):
-        return "<%s/ %s>" % (self._name, " ".join(x for x in self.__dict__ if x and x[0] != "_"))
+        return "<%s - %s elements>" % (self._name, len(self.__dict__))
 
     def _branch(self, br, uniq=0):
         if uniq and br._name in self:
-            raise DADict_Exception("DADict: [%s] already branched in [%s]" % (br._name, self._name))
+            raise DADict_Exception("DADict: [%s] already branched in [%s]" % (br._name, self._name))  # noqa: E501
         self[br._name] = br
 
     def _my_find(self, *args, **kargs):

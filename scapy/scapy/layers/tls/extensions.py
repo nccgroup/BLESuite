@@ -8,7 +8,11 @@ TLS handshake extensions.
 
 from __future__ import print_function
 
-from scapy.fields import *
+import struct
+
+from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
+    FieldListField, IntField, PacketField, PacketListField, ShortEnumField, \
+    ShortField, StrFixedLenField, StrLenField, XStrLenField
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.x509 import X509_Extensions
 from scapy.layers.tls.basefields import _tls_version
@@ -16,6 +20,9 @@ from scapy.layers.tls.keyexchange import (SigAndHashAlgsLenField,
                                           SigAndHashAlgsField, _tls_hash_sig)
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.crypto.groups import _tls_named_groups
+from scapy.themes import AnsiColorTheme
+from scapy.compat import raw
+from scapy.config import conf
 
 
 _tls_ext = {0: "server_name",             # RFC 4366
@@ -67,8 +74,8 @@ class TLS_Ext_Unknown(_GenericTLSSessionInheritance):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) - 4
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) - 4
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p + pay
 
 
@@ -100,10 +107,10 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
                                      ct.punct("="),)
             reprval = f.i2repr(self, fvalue)
             if isinstance(reprval, str):
-                reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl)
-                                                              + len(lvl)
-                                                              + len(f.name)
-                                                              + 4))
+                reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl) +
+                                                              len(lvl) +
+                                                              len(f.name) +
+                                                              4))
             s += "%s%s\n" % (begn, vcol(reprval))
         f = self.fields_desc[-1]
         ncol = ct.field_name
@@ -112,15 +119,15 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
         begn = "%s  %-10s%s " % (label_lvl + lvl, ncol(f.name), ct.punct("="),)
         reprval = f.i2repr(self, fvalue)
         if isinstance(reprval, str):
-            reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl)
-                                                          + len(lvl)
-                                                          + len(f.name)
-                                                          + 4))
+            reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl) +
+                                                          len(lvl) +
+                                                          len(f.name) +
+                                                          4))
         s += "%s%s\n" % (begn, vcol(reprval))
         if self.payload:
             s += self.payload._show_or_dump(dump=dump, indent=indent,
-                                            lvl=lvl + (" " * indent * self.show_indent),
-                                            label_lvl=label_lvl, first_call=False)
+                                            lvl=lvl + (" " * indent * self.show_indent),  # noqa: E501
+                                            label_lvl=label_lvl, first_call=False)  # noqa: E501
 
         if first_call and not dump:
             print(s)
@@ -367,8 +374,8 @@ def _TLS_Ext_CertTypeDispatcher(m, *args, **kargs):
     We need to select the correct one on dissection. We use the length for
     that, as 1 for client version would emply an empty list.
     """
-    l = struct.unpack("!H", m[2:4])[0]
-    if l == 1:
+    tmp_len = struct.unpack("!H", m[2:4])[0]
+    if tmp_len == 1:
         cls = TLS_Ext_ServerCertType
     else:
         cls = TLS_Ext_ClientCertType
@@ -419,7 +426,7 @@ class TLS_Ext_SignatureAlgorithms(TLS_Ext_Unknown):                 # RFC 5246
                    SigAndHashAlgsField("sig_algs", [],
                                        EnumField("hash_sig", None,
                                                  _tls_hash_sig),
-                                       length_from=lambda pkt: pkt.sig_algs_len)]
+                                       length_from=lambda pkt: pkt.sig_algs_len)]  # noqa: E501
 
 
 class TLS_Ext_Heartbeat(TLS_Ext_Unknown):                           # RFC 6520
@@ -613,8 +620,8 @@ class _ExtensionsLenField(FieldLenField):
         However, with TLS 1.3, zero lengths are always explicit.
         """
         ext = pkt.get_field(self.length_of)
-        l = ext.length_from(pkt)
-        if l is None or l <= 0:
+        tmp_len = ext.length_from(pkt)
+        if tmp_len is None or tmp_len <= 0:
             v = pkt.tls_session.tls_version
             if v is None or v < 0x0304:
                 return s, None
@@ -655,10 +662,10 @@ class _ExtensionsField(StrLenField):
         return len(self.i2m(pkt, i))
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        if l is None:
+        tmp_len = self.length_from(pkt)
+        if tmp_len is None:
             return s, []
-        return s[l:], self.m2i(pkt, s[:l])
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def i2m(self, pkt, i):
         if i is None:
@@ -679,14 +686,14 @@ class _ExtensionsField(StrLenField):
         res = []
         while m:
             t = struct.unpack("!H", m[:2])[0]
-            l = struct.unpack("!H", m[2:4])[0]
+            tmp_len = struct.unpack("!H", m[2:4])[0]
             cls = _tls_ext_cls.get(t, TLS_Ext_Unknown)
             if cls is TLS_Ext_KeyShare:
-                from scapy.layers.tls.keyexchange_tls13 import _tls_ext_keyshare_cls
+                from scapy.layers.tls.keyexchange_tls13 import _tls_ext_keyshare_cls  # noqa: E501
                 cls = _tls_ext_keyshare_cls.get(pkt.msgtype, TLS_Ext_Unknown)
             elif cls is TLS_Ext_PreSharedKey:
-                from scapy.layers.tls.keyexchange_tls13 import _tls_ext_presharedkey_cls
-                cls = _tls_ext_presharedkey_cls.get(pkt.msgtype, TLS_Ext_Unknown)
-            res.append(cls(m[:l + 4], tls_session=pkt.tls_session))
-            m = m[l + 4:]
+                from scapy.layers.tls.keyexchange_tls13 import _tls_ext_presharedkey_cls  # noqa: E501
+                cls = _tls_ext_presharedkey_cls.get(pkt.msgtype, TLS_Ext_Unknown)  # noqa: E501
+            res.append(cls(m[:tmp_len + 4], tls_session=pkt.tls_session))
+            m = m[tmp_len + 4:]
         return res

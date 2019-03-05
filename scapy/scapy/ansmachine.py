@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -13,7 +13,7 @@ Answering machines.
 
 from __future__ import absolute_import
 from __future__ import print_function
-from scapy.sendrecv import send, sendp, sniff
+from scapy.sendrecv import send, sniff
 from scapy.config import conf
 from scapy.error import log_interactive
 import scapy.modules.six as six
@@ -21,17 +21,17 @@ import scapy.modules.six as six
 
 class ReferenceAM(type):
     def __new__(cls, name, bases, dct):
-        o = super(ReferenceAM, cls).__new__(cls, name, bases, dct)
-        if o.function_name:
-            globals()[o.function_name] = lambda o=o, *args, **kargs: o(*args, **kargs)()
-        return o
+        obj = super(ReferenceAM, cls).__new__(cls, name, bases, dct)
+        if obj.function_name:
+            globals()[obj.function_name] = lambda obj=obj, *args, **kargs: obj(*args, **kargs)()  # noqa: E501
+        return obj
 
 
 class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
     function_name = ""
     filter = None
     sniff_options = {"store": 0}
-    sniff_options_list = ["store", "iface", "count", "promisc", "filter", "type", "prn", "stop_filter"]
+    sniff_options_list = ["store", "iface", "count", "promisc", "filter", "type", "prn", "stop_filter"]  # noqa: E501
     send_options = {"verbose": 0}
     send_options_list = ["iface", "inter", "loop", "verbose"]
     send_function = staticmethod(send)
@@ -52,9 +52,9 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
         self.optsend, self.optsniff = [{}, {}]
 
     def __getattr__(self, attr):
-        for d in [self.optam2, self.optam1]:
-            if attr in d:
-                return d[attr]
+        for dct in [self.optam2, self.optam1]:
+            if attr in dct:
+                return dct[attr]
         raise AttributeError(attr)
 
     def __setattr__(self, attr, val):
@@ -112,7 +112,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
             self.print_reply(pkt, reply)
 
     def run(self, *args, **kargs):
-        log_interactive.warning("run() method deprecated. The instance is now callable")
+        log_interactive.warning("run() method deprecated. The instance is now callable")  # noqa: E501
         self(*args, **kargs)
 
     def __call__(self, *args, **kargs):

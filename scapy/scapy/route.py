@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -25,7 +25,6 @@ from scapy.utils import atol, ltoa, itom, plain_str, pretty_list
 class Route:
     def __init__(self):
         self.resync()
-        self.invalidate_cache()
 
     def invalidate_cache(self):
         self.cache = {}
@@ -41,12 +40,12 @@ class Route:
             rtlst.append((ltoa(net),
                           ltoa(msk),
                           gw,
-                          (iface.name if not isinstance(iface, six.string_types) else iface),
+                          (iface.description if not isinstance(iface, six.string_types) else iface),  # noqa: E501
                           addr,
                           str(metric)))
 
         return pretty_list(rtlst,
-                           [("Network", "Netmask", "Gateway", "Iface", "Output IP", "Metric")])
+                           [("Network", "Netmask", "Gateway", "Iface", "Output IP", "Metric")])  # noqa: E501
 
     def make_route(self, host=None, net=None, gw=None, dev=None, metric=1):
         from scapy.arch import get_if_addr
@@ -56,7 +55,7 @@ class Route:
             thenet, msk = net.split("/")
             msk = int(msk)
         else:
-            raise Scapy_Exception("make_route: Incorrect parameters. You should specify a host or a net")
+            raise Scapy_Exception("make_route: Incorrect parameters. You should specify a host or a net")  # noqa: E501
         if gw is None:
             gw = "0.0.0.0"
         if dev is None:
@@ -101,7 +100,7 @@ class Route:
             elif iff != iface:
                 continue
             if gw == '0.0.0.0':
-                self.routes[i] = (the_net, the_msk, gw, iface, the_addr, metric)
+                self.routes[i] = (the_net, the_msk, gw, iface, the_addr, metric)  # noqa: E501
             else:
                 self.routes[i] = (net, msk, gw, iface, the_addr, metric)
         conf.netcache.flush()
@@ -126,51 +125,56 @@ class Route:
         the_net = the_rawaddr & the_msk
         self.routes.append((the_net, the_msk, '0.0.0.0', iff, the_addr, 1))
 
-    def route(self, dest, verbose=None):
-        if dest is None:
-            dest = "0.0.0.0"
-        elif isinstance(dest, bytes):
-            dest = plain_str(dest)
-        if dest in self.cache:
-            return self.cache[dest]
-        if verbose is None:
-            verbose = conf.verb
-        # Transform "192.168.*.1-5" to one IP of the set
-        dst = dest.split("/")[0]
-        dst = dst.replace("*", "0")
-        while True:
-            l = dst.find("-")
-            if l < 0:
-                break
-            m = (dst[l:] + ".").find(".")
-            dst = dst[:l] + dst[l + m:]
+    def route(self, dst=None, verbose=conf.verb):
+        """Returns the IPv4 routes to a host.
+        parameters:
+         - dst: the IPv4 of the destination host
 
-        dst = atol(dst)
-        pathes = []
+        returns: (iface, output_ip, gateway_ip)
+         - iface: the interface used to connect to the host
+         - output_ip: the outgoing IP that will be used
+         - gateway_ip: the gateway IP that will be used
+        """
+        dst = dst or "0.0.0.0"  # Enable route(None) to return default route
+        if isinstance(dst, bytes):
+            try:
+                dst = plain_str(dst)
+            except UnicodeDecodeError:
+                raise TypeError("Unknown IP address input (bytes)")
+        if dst in self.cache:
+            return self.cache[dst]
+        # Transform "192.168.*.1-5" to one IP of the set
+        _dst = dst.split("/")[0].replace("*", "0")
+        while True:
+            idx = _dst.find("-")
+            if idx < 0:
+                break
+            m = (_dst[idx:] + ".").find(".")
+            _dst = _dst[:idx] + _dst[idx + m:]
+
+        atol_dst = atol(_dst)
+        paths = []
         for d, m, gw, i, a, me in self.routes:
             if not a:  # some interfaces may not currently be connected
                 continue
             aa = atol(a)
-            if aa == dst:
-                pathes.append(
-                    (0xffffffff, 1, (scapy.consts.LOOPBACK_INTERFACE, a, "0.0.0.0"))
+            if aa == atol_dst:
+                paths.append(
+                    (0xffffffff, 1, (scapy.consts.LOOPBACK_INTERFACE, a, "0.0.0.0"))  # noqa: E501
                 )
-            if (dst & m) == (d & m):
-                pathes.append((m, me, (i, a, gw)))
-        if not pathes:
+            if (atol_dst & m) == (d & m):
+                paths.append((m, me, (i, a, gw)))
+
+        if not paths:
             if verbose:
                 warning("No route found (no default route?)")
             return scapy.consts.LOOPBACK_INTERFACE, "0.0.0.0", "0.0.0.0"
         # Choose the more specific route
-        # Sort by greatest netmask
-        pathes.sort(key=lambda x: x[0], reverse=True)
-        # Get all pathes having the (same) greatest mask
-        pathes = [i for i in pathes if i[0] == pathes[0][0]]
-        # Tie-breaker: Metrics
-        pathes.sort(key=lambda x: x[1])
+        # Sort by greatest netmask and use metrics as a tie-breaker
+        paths.sort(key=lambda x: (-x[0], x[1]))
         # Return interface
-        ret = pathes[0][2]
-        self.cache[dest] = ret
+        ret = paths[0][2]
+        self.cache[dst] = ret
         return ret
 
     def get_if_bcast(self, iff):
@@ -182,16 +186,16 @@ class Route:
                     continue
             elif iff != iface:
                 continue
-            bcast = atol(addr) | (~msk & 0xffffffff)  # FIXME: check error in atol()
+            bcast = atol(addr) | (~msk & 0xffffffff)  # FIXME: check error in atol()  # noqa: E501
             return ltoa(bcast)
         warning("No broadcast address found for iface %s\n", iff)
 
 
 conf.route = Route()
 
-iface = conf.route.route("0.0.0.0", verbose=0)[0]
+iface = conf.route.route(None, verbose=0)[0]
 
-# Warning: scapy.consts.LOOPBACK_INTERFACE must always be used statically, because it
+# Warning: scapy.consts.LOOPBACK_INTERFACE must always be used statically, because it  # noqa: E501
 # may be changed by scapy/arch/windows during execution
 
 if getattr(iface, "name", iface) == scapy.consts.LOOPBACK_INTERFACE:

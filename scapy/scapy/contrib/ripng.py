@@ -14,13 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = RIPng
+# scapy.contrib.description = Routing Information Protocol next gen (RIPng)
 # scapy.contrib.status = loads
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, IP6Field, ShortField
 from scapy.layers.inet import UDP
-from scapy.layers.inet6 import *
 
 
 class RIPng(Packet):

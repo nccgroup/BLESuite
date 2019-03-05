@@ -1,7 +1,10 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Sabrina Dubroca <sd@queasysnail.net>
 # This program is published under a GPLv2 license
+
+# scapy.contrib.description = 802.1AE - IEEE MAC Security standard (MACsec)
+# scapy.contrib.status = loads
 
 """
 Classes and functions for MACsec.
@@ -10,18 +13,22 @@ Classes and functions for MACsec.
 from __future__ import absolute_import
 from __future__ import print_function
 import struct
+import copy
 
 from scapy.config import conf
-from scapy.fields import *
+from scapy.fields import BitField, ConditionalField, IntField, PacketField, \
+    XShortEnumField
 from scapy.packet import Packet, Raw, bind_layers
 from scapy.layers.l2 import Ether, Dot1AD, Dot1Q
 from scapy.layers.eap import MACsecSCI
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6
+from scapy.compat import raw
+from scapy.data import ETH_P_MACSEC, ETHER_TYPES, ETH_P_IP, ETH_P_IPV6
+from scapy.error import log_loading
 import scapy.modules.six as six
 
 if conf.crypto_valid:
-    from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives.ciphers import (
         Cipher,
@@ -44,7 +51,7 @@ class MACsecSA(object):
     Provides encapsulation, decapsulation, encryption, and decryption
     of MACsec frames
     """
-    def __init__(self, sci, an, pn, key, icvlen, encrypt, send_sci, xpn_en=False, ssci=None, salt=None):
+    def __init__(self, sci, an, pn, key, icvlen, encrypt, send_sci, xpn_en=False, ssci=None, salt=None):  # noqa: E501
         if isinstance(sci, six.integer_types):
             self.sci = struct.pack('!Q', sci)
         elif isinstance(sci, bytes):
@@ -75,9 +82,9 @@ class MACsecSA(object):
     def make_iv(self, pkt):
         """generate an IV for the packet"""
         if self.xpn_en:
-            tmp_pn = (self.pn & 0xFFFFFFFF00000000) | (pkt[MACsec].pn & 0xFFFFFFFF)
+            tmp_pn = (self.pn & 0xFFFFFFFF00000000) | (pkt[MACsec].pn & 0xFFFFFFFF)  # noqa: E501
             tmp_iv = self.ssci + struct.pack('!Q', tmp_pn)
-            return bytes(bytearray([a ^ b for a, b in zip(bytearray(tmp_iv), bytearray(self.salt))]))
+            return bytes(bytearray([a ^ b for a, b in zip(bytearray(tmp_iv), bytearray(self.salt))]))  # noqa: E501
         else:
             return self.sci + struct.pack('!I', pkt[MACsec].pn)
 
@@ -116,7 +123,7 @@ class MACsecSA(object):
     def encap(self, pkt):
         """encapsulate a frame using this Secure Association"""
         if pkt.name != Ether().name:
-            raise TypeError('cannot encapsulate packet in MACsec, must be Ethernet')
+            raise TypeError('cannot encapsulate packet in MACsec, must be Ethernet')  # noqa: E501
         hdr = copy.deepcopy(pkt)
         payload = hdr.payload
         del hdr.payload
@@ -132,8 +139,8 @@ class MACsecSA(object):
     # encap(), it is
     def decap(self, orig_pkt):
         """decapsulate a MACsec frame"""
-        if orig_pkt.name != Ether().name or orig_pkt.payload.name != MACsec().name:
-            raise TypeError('cannot decapsulate MACsec packet, must be Ethernet/MACsec')
+        if orig_pkt.name != Ether().name or orig_pkt.payload.name != MACsec().name:  # noqa: E501
+            raise TypeError('cannot decapsulate MACsec packet, must be Ethernet/MACsec')  # noqa: E501
         packet = copy.deepcopy(orig_pkt)
         prev_layer = packet[MACsec].underlayer
         prev_layer.type = packet[MACsec].type
@@ -213,7 +220,7 @@ class MACsec(Packet):
                    BitField('reserved', 0, 2),
                    BitField('shortlen', 0, 6),
                    IntField("pn", 1),
-                   ConditionalField(PacketField("sci", None, MACsecSCI), lambda pkt: pkt.SC),
+                   ConditionalField(PacketField("sci", None, MACsecSCI), lambda pkt: pkt.SC),  # noqa: E501
                    ConditionalField(XShortEnumField("type", None, ETHER_TYPES),
                                     lambda pkt: pkt.type is not None)]
 
