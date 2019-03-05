@@ -94,7 +94,7 @@ class HCIConfig(object):
         return True
 
     @staticmethod
-    def get_bdaddr(iface):
+    def get_devinfo(iface):
         di = hci_dev_info(dev_id=iface)
         sock = s.socket(
             HCIConfig.PF_BLUETOOTH,
@@ -107,6 +107,13 @@ class HCIConfig(object):
         finally:
             sock.close()
         if rv:
+            return None
+        return di
+
+    @staticmethod
+    def get_bdaddr(iface):
+        di = HCIConfig.get_devinfo(iface)
+        if not di:
             return None
         return ':'.join(["%02X" % b for b in di.bdaddr[::-1]])
 
