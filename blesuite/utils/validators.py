@@ -181,7 +181,8 @@ def validate_att_property(att_property):
 def validate_gatt_property(gatt_property):
     gatt_property = gatt_property.lower()
     valid_properties = ['broadcast', 'read', 'write', 'notify', 'indicate',
-                        'authenticated signed writes', 'extended properties']
+                        'authenticated signed writes', 'extended properties',
+                        'write without response']
     if gatt_property not in valid_properties:
         raise InvalidGATTProperty(gatt_property)
     return gatt_property
