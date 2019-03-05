@@ -81,7 +81,7 @@ class LongTermKeyDatabase:
 
     def get_entry_for_address(self, address):
         for entry in self.long_term_keys:
-            if entry[address] == address.replace(":",""):
+            if entry["address"] == address.replace(":",""):
                 return entry
         return None
 

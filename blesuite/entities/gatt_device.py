@@ -98,8 +98,8 @@ class BLEDevice(object):
             if start <= handle <= end:
                 characteristic = BLECharacteristic(value_handle, handle, uuid, properties, service.uuid)
                 service.characteristics.append(characteristic)
-
-        return characteristic
+                return characteristic
+        return None
 
     def add_include(self, handle, included_service_att_handle, end_group_handle, uuid):
         """

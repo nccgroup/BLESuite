@@ -627,7 +627,7 @@ class UUID:
                 self.packed = pack('<h', uuid)
                 self.type = UUID.TYPE_16
             elif 0 <= uuid <= 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:
-                self.uuid = '%32X' % uuid
+                self.uuid = '%032X' % uuid
                 # modified solution from http://www.codegur.site/6877096/how-to-pack-a-uuid-into-a-struct-in-python
                 self.packed = pack('<QQ', uuid & 0xFFFFFFFFFFFFFFFF, (uuid >> 64) & 0xFFFFFFFFFFFFFFFF)
                 self.type = UUID.TYPE_128
@@ -637,7 +637,7 @@ class UUID:
             self.packed = uuid.decode("hex")[::-1]
             self.type = UUID.TYPE_16
         elif len(uuid) == 36:
-            temp = uuid.translate(None, '-')
+            temp = uuid.translate(None, "-")
 
             if len(temp) == 32:
                 self.uuid = uuid
@@ -659,7 +659,7 @@ class UUID:
             self.type = UUID.TYPE_128
 
         if self.uuid is None:
-            raise InvalidUUIDException()
+            raise InvalidUUIDException(uuid)
 
     def __eq__(self, other):
         # TODO expand 16 bit UUIDs
