@@ -13,23 +13,46 @@ RANDOM_DEVICE_ADDRESS = 0x01
 
 
 class HCIConfig(object):
+    PF_BLUETOOTH = 31
+
+    BTPROTO_HCI = 1
+
+    # IOCTL
+    HCIDEVUP = 0x400448c9
+    HCIDEVDOWN = 0x400448ca
+    HCIDEVRESET = 0x400448cb
+
     @staticmethod
     def down(iface):
-        # 31 => PF_BLUETOOTH
-        # 0 => HCI_CHANNEL_USER
-        # 0x400448ca => HCIDEVDOWN
-        sock = s.socket(31, s.SOCK_RAW, 1)
-        ioctl(sock.fileno(), 0x400448ca, iface)
+        sock = s.socket(
+            HCIConfig.PF_BLUETOOTH,
+            s.SOCK_RAW,
+            HCIConfig.BTPROTO_HCI)
+        ioctl(sock.fileno(), HCIConfig.HCIDEVDOWN, iface)
         sock.close()
         return True
 
     @staticmethod
     def up(iface):
-        sock = s.socket(31, s.SOCK_RAW, iface)
-        # TODO
-        # ioctl(sock.fileno(), HCIDEVUP, 0)
+        sock = s.socket(
+            HCIConfig.PF_BLUETOOTH,
+            s.SOCK_RAW,
+            HCIConfig.BTPROTO_HCI)
+        ioctl(sock.fileno(), HCIConfig.HCIDEVUP, iface)
         sock.close()
         return False
+
+    @staticmethod
+    def reset(iface):
+        sock = s.socket(
+            HCIConfig.PF_BLUETOOTH,
+            s.SOCK_RAW,
+            HCIConfig.BTPROTO_HCI)
+        ioctl(sock.fileno(), HCIConfig.HCIDEVRESET, iface)
+        ioctl(sock.fileno(), HCIConfig.HCIDEVDOWN, iface)
+        ioctl(sock.fileno(), HCIConfig.HCIDEVUP, iface)
+        sock.close()
+        return True
 
 
 class BTStack:
@@ -214,7 +237,7 @@ class BTStack:
                     meta = p[HCI_LE_Meta_Connection_Complete]
                     return BTEvent(BTEvent.CONNECTED, (p.status, p.handle, meta, p.paddr, p.patype))
                 if p.event == 2:
-                    return BTEvent(BTEvent.SCAN_DATA, (p.addr, p.atype, p.data))
+                    return BTEvent(BTEvent.SCAN_DATA, (p.reports[0].addr, p.reports[0].atype, p.reports[0].data))
                 # LE Read Remote Used Features Complete
                 if p.event == 4:
                     meta = p[HCI_LE_Meta_Connection_Complete]
