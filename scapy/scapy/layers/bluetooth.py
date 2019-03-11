@@ -151,6 +151,63 @@ _bluetooth_packet_types = {
     15: "Link Control"
 }
 
+_bluetooth_error_codes = {
+    0x00: "success",
+    0x01: "unknown command",
+    0x02: "no connection",
+    0x03: "hardware failure",
+    0x04: "page timeout",
+    0x05: "authentication failure",
+    0x06: "pin or key missing",
+    0x07: "memory full",
+    0x08: "connection timeout",
+    0x09: "max number of connections",
+    0x0a: "max number of sco connections",
+    0x0b: "acl connection exists",
+    0x0c: "command disallowed",
+    0x0d: "rejected limited resources",
+    0x0e: "rejected security",
+    0x0f: "rejected personal",
+    0x10: "host timeout",
+    0x11: "unsupported feature",
+    0x12: "invalid parameters",
+    0x13: "oe user ended connection",
+    0x14: "oe low resources",
+    0x15: "oe power off",
+    0x16: "connection terminated",
+    0x17: "repeated attempts",
+    0x18: "pairing not allowed",
+    0x19: "unknown lmp pdu",
+    0x1a: "unsupported remote feature",
+    0x1b: "sco offset rejected",
+    0x1c: "sco interval rejected",
+    0x1d: "air mode rejected",
+    0x1e: "invalid lmp parameters",
+    0x1f: "unspecified error",
+    0x20: "unsupported lmp parameter value",
+    0x21: "role change not allowed",
+    0x22: "lmp response timeout",
+    0x23: "lmp error transaction collision",
+    0x24: "lmp pdu not allowed",
+    0x25: "encryption mode not accepted",
+    0x26: "unit link key used",
+    0x27: "qos not supported",
+    0x28: "instant passed",
+    0x29: "pairing not supported",
+    0x2a: "transaction collision",
+    0x2c: "qos unacceptable parameter",
+    0x2d: "qos rejected",
+    0x2e: "classification not supported",
+    0x2f: "insufficient security",
+    0x30: "parameter out of range",
+    0x32: "role switch pending",
+    0x34: "slot violation",
+    0x35: "role switch failed",
+    0x36: "eir too large",
+    0x37: "simple pairing not supported",
+    0x38: "host busy pairing"
+}
+
 
 class HCI_Hdr(Packet):
     name = "HCI header"
@@ -466,7 +523,12 @@ class ATT_Execute_Write_Request(Packet):
     ]
 
 
+class ATT_Execute_Write_Response(Packet):
+    name = "Execute Write Response"
+
+
 class ATT_Read_Blob_Request(Packet):
+    name = "Read Blob Request"
     fields_desc = [
         XLEShortField("gatt_handle", 0),
         LEShortField("offset", 0)
@@ -474,6 +536,7 @@ class ATT_Read_Blob_Request(Packet):
 
 
 class ATT_Read_Blob_Response(Packet):
+    name = "Read Blob Response"
     fields_desc = [
         StrField("value", "")
     ]
@@ -769,7 +832,7 @@ class HCI_Cmd_Read_BD_Addr(Packet):
 
 class HCI_Cmd_Write_Local_Name(Packet):
     name = "Write Local Name"
-    fields_desc = [ StrField("name", ""), ]
+    fields_desc = [StrField("name", "")]
 
 
 class HCI_Cmd_Write_Extended_Inquiry_Response(Packet):
@@ -945,7 +1008,7 @@ class HCI_Event_Command_Complete(Packet):
     name = "Command Complete"
     fields_desc = [ByteField("number", 0),
                    XLEShortField("opcode", 0),
-                   ByteEnumField("status", 0, {0: "success"}), ]
+                   ByteEnumField("status", 0, _bluetooth_error_codes),]
 
     def answers(self, other):
         if HCI_Command_Hdr not in other:
@@ -1295,8 +1358,6 @@ class BluetoothUserSocket(SuperSocket):
             raise BluetoothSocketError("Unable to bind")
 
         self.ins = self.outs = socket.fromfd(s, 31, 3, 1)
-        # saving file descriptor so we can close socket later
-        self.fd = s
 
     def send_command(self, cmd):
         opcode = cmd.opcode
@@ -1321,14 +1382,21 @@ class BluetoothUserSocket(SuperSocket):
 
     def close(self):
         #Properly close socket so we can free the device
-        cdll.LoadLibrary("libc.so.6")
-        libc = CDLL("libc.so.6")
-
+        ctypes.cdll.LoadLibrary("libc.so.6")
+        libc = ctypes.CDLL("libc.so.6")
 
         close = libc.close
-        close.restype = c_int
-
-        r = close(self.fd)
+        close.restype = ctypes.c_int
+        if self.closed:
+            return
+        self.closed = True
+        if hasattr(self, "outs"):
+            if not hasattr(self, "ins") or self.ins != self.outs:
+                if self.outs and (WINDOWS or self.outs.fileno() != -1):
+                    close(self.outs.fileno())
+        if hasattr(self, "ins"):
+            if self.ins and (WINDOWS or self.ins.fileno() != -1):
+                close(self.ins.fileno())
 
 
 conf.BTsocket = BluetoothRFCommSocket

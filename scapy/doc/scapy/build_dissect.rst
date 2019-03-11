@@ -81,7 +81,7 @@ And here  is the  main "trick".  You do not  care about  packets, only
 about layers, stacked one after the other. 
 
 One can easily  access a layer by its name: ``p[TCP]`` returns the ``TCP``
-and followings layers. This is a shortcut for ``p.getlayer(TCP)``.
+and following layers. This is a shortcut for ``p.getlayer(TCP)``.
 
 .. note::
    There is  an optional argument (``nb``) which returns  the ``nb`` th  layer of required protocol.
@@ -449,11 +449,11 @@ Changing the default behavior
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you do not like Scapy's  behavior for a given layer, you can either
-change or disable it through  the call to ``split_layer()``. For instance,
-if you do not want UDP/53 to be bound with ``DNS``, just add in your code:
-``
-split_layers(UDP, DNS, sport=53)
-``
+change or disable it through  a call to ``split_layers()``. For instance,
+if you do not want UDP/53 to be bound with ``DNS``, just add in your code::
+
+    split_layers(UDP, DNS, sport=53)
+
 Now every packet  with source port 53 will not be  handled as DNS, but
 whatever you specify instead.
 
@@ -763,7 +763,7 @@ gather the  values to set the fields  to the lower layer  (the left of
 specify the bindings in  both directions between two neighboring
 layers.
 
-Once again, these informations must be provided to ``bind_layers()``,
+Once again, these information must be provided to ``bind_layers()``,
 which  will   internally  call  ``bind_top_down()``   in  charge  to
 aggregate the fields to overload. In our case what we need to specify
 is::
@@ -868,7 +868,10 @@ Legend:
     LEShortField
     XShortField
     
-    X3BytesField        # three bytes (in hexad 
+    X3BytesField        # three bytes as hex
+    LEX3BytesField      # little endian three bytes as hex
+    ThreeBytesField     # three bytes as decimal
+    LEThreeBytesField   # little endian three bytes as decimal
     
     IntField
     SignedIntField

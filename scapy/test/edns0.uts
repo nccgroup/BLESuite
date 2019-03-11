@@ -5,7 +5,7 @@
 
 + Test EDNS0 rdata
 
-= EDNS0TLV(), basic instanciation
+= EDNS0TLV(), basic instantiation
 tlv = EDNS0TLV()
 raw(tlv) == b'\x00\x00\x00\x00'
 
@@ -23,7 +23,7 @@ tlv.optcode == 42 and tlv.optlen == 8 and tlv.optdata == b"edns0tlv"
 
 + Test OPT RR
 
-= DNSRROPT(), basic instanciation
+= DNSRROPT(), basic instantiation
 opt = DNSRROPT()
 raw(opt) == b'\x00\x00)\x10\x00\x00\x00\x80\x00\x00\x00'
 
@@ -41,7 +41,7 @@ opt.rrname == b"rropt." and opt.rdlen == 12 and opt.rdata[0].optcode == 42 and o
 
 + Test EDNS-PING
 
-= EDNS-PING - basic instanciation
+= EDNS-PING - basic instantiation
 tlv = EDNS0TLV(optcode=5, optdata=b"\x00\x11\x22\x33")
 raw(tlv) == b'\x00\x05\x00\x04\x00\x11"3'
 
@@ -56,14 +56,18 @@ raw(tlv) == b'\x00\x05\x00\x04\x00\x11"3'
 
 + Test DNS Name Server Identifier (NSID) Option
 
-= NSID- basic instanciation
+= NSID- basic instantiation
 tlv = EDNS0TLV(optcode=2, optdata="")
 raw(tlv) == b'\x00\x02\x00\x00'
 
 = NSID - Live test
 ~ netaccess
-old_debug_dissector = conf.debug_dissector
-conf.debug_dissector = False
-r = sr1(IP(dst="l.root-servers.net")/UDP()/DNS(qd=[DNSQR(qtype="SOA", qname=".")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="NSID")])]), timeout=1)
-conf.debug_dissector = old_debug_dissector
-len(r.ar) and DNSRROPT in r.ar and len(r.ar[DNSRROPT].rdata) and len([x for x in r.ar[DNSRROPT].rdata if x.optcode == 3])
+from scapy.tools.UTscapy import retry_test
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    r = sr1(IP(dst="l.root-servers.net")/UDP()/DNS(qd=[DNSQR(qtype="SOA", qname=".")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="NSID")])]), timeout=1)
+    conf.debug_dissector = old_debug_dissector
+    len(r.ar) and DNSRROPT in r.ar and len(r.ar[DNSRROPT].rdata) and len([x for x in r.ar[DNSRROPT].rdata if x.optcode == 3])
+
+retry_test(_test)

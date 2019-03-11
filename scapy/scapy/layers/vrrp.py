@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # Copyright (C) 6WIND <olivier.matz@6wind.com>
 # This program is published under a GPLv2 license
@@ -8,11 +8,12 @@
 VRRP (Virtual Router Redundancy Protocol).
 """
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.compat import *
-from scapy.layers.inet import *
-from scapy.layers.inet6 import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitField, ByteField, FieldLenField, FieldListField, \
+    IPField, IntField, XShortField
+from scapy.compat import chb, orb
+from scapy.layers.inet import IP, in4_chksum, checksum
+from scapy.layers.inet6 import IPv6, in6_chksum
 from scapy.error import warning
 
 IPPROTO_VRRP = 112
@@ -72,7 +73,7 @@ class VRRPv3(Packet):
             elif isinstance(self.underlayer, IPv6):
                 ck = in6_chksum(112, self.underlayer, p)
             else:
-                warning("No IP(v6) layer to compute checksum on VRRP. Leaving null")
+                warning("No IP(v6) layer to compute checksum on VRRP. Leaving null")  # noqa: E501
                 ck = 0
             p = p[:6] + chb(ck >> 8) + chb(ck & 0xff) + p[8:]
         return p

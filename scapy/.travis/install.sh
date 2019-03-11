@@ -1,10 +1,7 @@
-# Detect the pip version
-PIP=`which pip || (python --version 2>&1 | grep -q 'Python 2' && which pip2) || (python --version 2>&1 | grep -q 'Python 3' && which pip3)`
-
-# Install Python3 on osx
-if [ "$TRAVIS_OS_NAME" = "osx" ] && ! python3
+#!/bin/bash
+# Install on osx
+if [ "$TRAVIS_OS_NAME" = "osx" ]
 then
-  brew upgrade python
   pip3 install tox
   if [ ! -z $SCAPY_USE_PCAPDNET ]
   then
@@ -17,6 +14,7 @@ fi
 # Install wireshark data
 if [ "$TRAVIS_OS_NAME" = "linux" ] && [ "$TRAVIS_SUDO" = "true" ]
 then
+  sudo apt-get update
   sudo apt-get -qy install tshark
   sudo apt-get -qy install can-utils build-essential linux-headers-$(uname -r);
 fi
@@ -28,4 +26,4 @@ then
 fi
 
 # Make sure tox is installed and up to date
-$PIP install -U tox
+pip install -U tox

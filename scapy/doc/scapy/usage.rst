@@ -22,7 +22,7 @@ administrator privileges::
 If you do not have all optional packages installed, Scapy will inform you that 
 some features will not be available:: 
                                  
-    INFO: Can't import python gnuplot wrapper . Won't be able to plot.
+    INFO: Can't import python matplotlib wrapper. Won't be able to plot.
     INFO: Can't import PyX. Won't be able to use psdump() or pdfdump().
 
 The basic features of sending and receiving packets should still work, though. 
@@ -30,7 +30,7 @@ The basic features of sending and receiving packets should still work, though.
 Screenshot
 ----------
 
-If you have installed IPython, scapy will hook to it and you will be able to use auto-completion using the TAB.
+If you have installed IPython, Scapy will hook to it and you will be able to use auto-completion using the TAB.
 
 .. image:: graphics/scapy-main-console.png
    :align: center
@@ -326,7 +326,7 @@ A DNS query (``rd`` = recursion desired). The host 192.168.5.1 is my DNS server.
      an=<DNSRR rrname='www.slashdot.org.' type=A rclass=IN ttl=3560L rdata='66.35.250.151' |>
      ns=0 ar=0 |<Padding load='\xc6\x94\xc7\xeb' |>>>>
 
-The "send'n'receive" functions family is the heart of scapy. They return a couple of two lists. The first element is a list of couples (packet sent, answer), and the second element is the list of unanswered packets. These two elements are lists, but they are wrapped by an object to present them better, and to provide them with some methods that do most frequently needed actions::
+The "send'n'receive" functions family is the heart of Scapy. They return a couple of two lists. The first element is a list of couples (packet sent, answer), and the second element is the list of unanswered packets. These two elements are lists, but they are wrapped by an object to present them better, and to provide them with some methods that do most frequently needed actions::
 
     >>> sr(IP(dst="192.168.8.1")/TCP(dport=[21,22,23]))
     Received 6 packets, got 3 answers, remaining 0 packets
@@ -337,7 +337,7 @@ The "send'n'receive" functions family is the heart of scapy. They return a coupl
     IP / TCP 192.168.8.14:20 > 192.168.8.1:22 S ==> Ether / IP / TCP 192.168.8.1:22 > 192.168.8.14:20 RA / Padding
     IP / TCP 192.168.8.14:20 > 192.168.8.1:23 S ==> Ether / IP / TCP 192.168.8.1:23 > 192.168.8.14:20 RA / Padding
     
-If there is a limited rate of answers, you can specify a time interval to wait between two packets with the inter parameter. If some packets are lost or if specifying an interval is not enough, you can resend all the unanswered packets, either by calling the function again, directly with the unanswered list, or by specifying a retry parameter. If retry is 3, scapy will try to resend unanswered packets 3 times. If retry is -3, scapy will resend unanswered packets until no more answer is given for the same set of unanswered packets 3 times in a row. The timeout parameter specify the time to wait after the last packet has been sent::
+If there is a limited rate of answers, you can specify a time interval to wait between two packets with the inter parameter. If some packets are lost or if specifying an interval is not enough, you can resend all the unanswered packets, either by calling the function again, directly with the unanswered list, or by specifying a retry parameter. If retry is 3, Scapy will try to resend unanswered packets 3 times. If retry is -3, Scapy will resend unanswered packets until no more answer is given for the same set of unanswered packets 3 times in a row. The timeout parameter specify the time to wait after the last packet has been sent::
 
     >>> sr(IP(dst="172.20.29.5/30")/TCP(dport=[21,22,23]),inter=0.5,retry=-2,timeout=1)
     Begin emission:
@@ -517,15 +517,13 @@ In this example, we used the `traceroute_map()` function to print the graphic. T
 It could have been done differently:
 
     >>> conf.geoip_city = "path/to/GeoLite2-City.mmdb"
-    >>> a = traceroute("www.google.co.uk", verbose=0)[0]
-    >>> b = traceroute("www.secdev.org", verbose=0)[0]
-    >>> a.res += b.res
+    >>> a = traceroute(["www.google.co.uk", "www.secdev.org"], verbose=0)
     >>> a.world_trace()
 
 or such as above:
 
     >>> conf.geoip_city = "path/to/GeoLite2-City.mmdb"
-    >>> traceroute_map("www.google.co.uk", "www.secdev.org")
+    >>> traceroute_map(["www.google.co.uk", "www.secdev.org"])
 
 To use those functions, it is required to have installed the `geoip2 <https://pypi.python.org/pypi/geoip2>`_ module, `its database <https://dev.maxmind.com/geoip/geoip2/geolite2/>`_ (`direct download <https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz>`_)
 but also the `cartopy <http://scitools.org.uk/cartopy/docs/latest/installing.html>`_ module.
@@ -536,10 +534,22 @@ Configuring super sockets
 .. index::
    single: super socket
 
-The process of sending packets and receiving is quite complicated. As I wanted to use the PF_PACKET interface to go through netfilter, I also needed to implement an ARP stack and ARP cache, and a LL stack. Well it seems to work, on ethernet and PPP interfaces, but I don't guarantee anything. Anyway, the fact I used a kind of super-socket for that mean that you can switch your IO layer very easily, and use PF_INET/SOCK_RAW, or use PF_PACKET at level 2 (giving the LL header (ethernet,...) and giving yourself mac addresses, ...). I've just added a super socket which use libdnet and libpcap, so that it should be portable::
+Different super sockets are available in Scapy: the native ones, and the ones that use a libpcap provider (that go through libpcap to send/receive packets).
+By default, Scapy will try to use the native ones (except on Windows, where the winpcap/npcap ones are preferred). To manually use the libpcap ones, you must:
 
-    >>> conf.L3socket=L3dnetSocket
-    >>> conf.L3listen=L3pcapListenSocket
+* On Unix/OSX: be sure to have libpcap installed, and one of the following as libpcap python wrapper: `pcapy` or `pypcap`
+* On Windows: have Npcap/Winpcap installed. (default)
+
+Then use:
+
+    >>> conf.use_pcap = True
+
+This will automatically update the sockets pointing to `conf.L2socket` and `conf.L3socket`.
+
+If you want to manually set them, you have a bunch of sockets available, depending on your platform. For instance, you might want to use:
+
+    >>> conf.L3socket=L3pcapSocket  # Receive/send L3 packets through libpcap
+    >>> conf.L2listen=L2ListenTcpdump  # Receive L2 packets through TCPDump
 
 Sniffing
 --------
@@ -657,7 +667,7 @@ For even more control over displayed information we can use the ``sprintf()`` fu
     en-us,en;q=0.5\r\nAccept-Encoding: gzip,deflate\r\nAccept-Charset:
     ISO-8859-1,utf-8;q=0.7,*;q=0.7\r\nKeep-Alive: 300\r\nConnection:
     keep-alive\r\nCache-Control: max-age=0\r\n\r\n'
-    
+
 We can sniff and do passive OS fingerprinting::
 
     >>> p
@@ -677,6 +687,29 @@ We can sniff and do passive OS fingerprinting::
     (1.0, ['Windows 2000 (9)'])
 
 The number before the OS guess is the accuracy of the guess.
+
+Advanced Sniffing - Sessions
+----------------------------
+
+.. note::
+   Sessions are only available since **Scapy 2.4.3**
+
+``sniff()`` also provides **Sessions**, that allows to dissect a flow of packets seamlessly. For instance, you may want your ``sniff(prn=...)`` function to automatically defragment IP packets, before executing the ``prn``.
+
+Scapy includes some basic Sessions, but it is possible to implement your own.
+Available by default:
+
+- ``IPSession`` -> *defragment IP packets* on-the-flow, to make a stream usable by ``prn``
+- ``NetflowSession`` -> *resolve Netflow V9 packets* from their NetflowFlowset information objects
+
+Those sessions can be used using the ``session=`` parameter of ``sniff()``::
+
+    >>> sniff(session=IPSession, prn=lambda x: x.summary())
+    >>> sniff(session=NetflowSession, prn=lambda x: x.summary())
+
+.. note::
+   To implement your own Session class, in order to support another flow-based protocol, start by copying a sample from `scapy/sessions.py <https://github.com/secdev/scapy/blob/master/scapy/sessions.py>`_
+   Your custom ``Session`` class only needs to extend the ``DefaultSession`` class, and implement a ``on_packet_received`` function, such as in the example.
 
 Filters
 -------
@@ -735,6 +768,7 @@ Here is an example of a (h)ping-like functionality : you always send the same se
             IP / TCP 192.168.8.14:20 > 192.168.11.98:80 S
             IP / TCP 192.168.8.14:20 > 192.168.11.97:80 S
 
+.. _import-export:
 
 Importing and Exporting Data
 ----------------------------
@@ -880,7 +914,7 @@ Making tables
 
 Now we have a demonstration of the ``make_table()`` presentation function. It takes a list as parameter, and a function who returns a 3-uple. The first element is the value on the x axis from an element of the list, the second is about the y value and the third is the value that we want to see at coordinates (x,y). The result is a table. This function has 2 variants, ``make_lined_table()`` and ``make_tex_table()`` to copy/paste into your LaTeX pentest report. Those functions are available as methods of a result object :
 
-Here we can see a multi-parallel traceroute (scapy already has a multi TCP traceroute function. See later)::
+Here we can see a multi-parallel traceroute (Scapy already has a multi TCP traceroute function. See later)::
 
     >>> ans, unans = sr(IP(dst="www.test.fr/30", ttl=(1,6))/TCP())
     Received 49 packets, got 24 answers, remaining 0 packets
@@ -916,7 +950,7 @@ Routing
 .. index::
    single: Routing, conf.route
 
-Now scapy has its own routing table, so that you can have your packets routed differently than the system::
+Now Scapy has its own routing table, so that you can have your packets routed differently than the system::
 
     >>> conf.route
     Network         Netmask         Gateway         Iface
@@ -939,18 +973,18 @@ Now scapy has its own routing table, so that you can have your packets routed di
     192.168.8.0     255.255.255.0   0.0.0.0         eth0
     0.0.0.0         0.0.0.0         192.168.8.1     eth0
 
-Gnuplot
--------
+Matplotlib
+----------
 
 .. index::
-   single: Gnuplot, plot()
+   single: Matplotlib, plot()
 
-We can easily plot some harvested values using Gnuplot. (Make sure that you have Gnuplot-py and Gnuplot installed.)
+We can easily plot some harvested values using Matplotlib. (Make sure that you have matplotlib installed.)
 For example, we can observe the IP ID patterns to know how many distinct IP stacks are used behind a load balancer::
 
     >>> a, b = sr(IP(dst="www.target.com")/TCP(sport=[RandShort()]*1000))
     >>> a.plot(lambda x:x[1].id)
-    <Gnuplot._Gnuplot.Gnuplot instance at 0xb7d6a74c>
+    [<matplotlib.lines.Line2D at 0x2367b80d6a0>]
 
 .. image:: graphics/ipid.png
 
@@ -961,7 +995,7 @@ TCP traceroute (2)
 .. index::
    single: traceroute(), Traceroute
 
-Scapy also has a powerful TCP traceroute function. Unlike other traceroute programs that wait for each node to reply before going to the next, scapy sends all the packets at the same time. This has the disadvantage that it can't know when to stop (thus the maxttl parameter) but the great advantage that it took less than 3 seconds to get this multi-target traceroute result::
+Scapy also has a powerful TCP traceroute function. Unlike other traceroute programs that wait for each node to reply before going to the next, Scapy sends all the packets at the same time. This has the disadvantage that it can't know when to stop (thus the maxttl parameter) but the great advantage that it took less than 3 seconds to get this multi-target traceroute result::
 
     >>> traceroute(["www.yahoo.com","www.altavista.com","www.wisenut.com","www.copernic.com"],maxttl=20)
     Received 80 packets, got 80 answers, remaining 0 packets
@@ -1086,8 +1120,8 @@ Provided that your wireless card and driver are correctly configured for frame i
 
 On Windows, if using Npcap, the equivalent would be to call
 
-    # Of course, conf.iface can be replaced by any interfaces accessed through IFACES
-    >>> conf.iface.setmonitor(True)
+    >>> # Of course, conf.iface can be replaced by any interfaces accessed through IFACES
+    ... conf.iface.setmonitor(True)
 
 you can have a kind of FakeAP::
 
@@ -1097,7 +1131,7 @@ you can have a kind of FakeAP::
                     addr3="00:01:02:03:04:05")/
               Dot11Beacon(cap="ESS", timestamp=1)/
               Dot11Elt(ID="SSID", info=RandString(RandNum(1,50)))/
-              Dot11Elt(ID="Rates", info='\x82\x84\x0b\x16')/
+              Dot11EltRates(rates=[130, 132, 11, 22])/
               Dot11Elt(ID="DSset", info="\x03")/
               Dot11Elt(ID="TIM", info="\x00\x01\x00\x00"),
               iface="mon0", loop=1)
@@ -1361,7 +1395,9 @@ Wireless sniffing
 
 The following command will display information similar to most wireless sniffers::
 
->>> sniff(iface="ath0",prn=lambda x:x.sprintf("{Dot11Beacon:%Dot11.addr3%\t%Dot11Beacon.info%\t%PrismHeader.channel%\t%Dot11Beacon.cap%}"))
+>>> sniff(iface="ath0", monitor=True, prn=lambda x:x.sprintf("{Dot11Beacon:%Dot11.addr3%\t%Dot11Beacon.info%\t%PrismHeader.channel%\t%Dot11Beacon.cap%}"))
+
+Note the `monitor=True` argument, which only work from scapy>2.4.0 (2.4.0dev+), that is cross-platform. It will in work in most cases (Windows, OSX), but might require you to manually toggle monitor mode.
 
 The above command will produce output similar to the one below::
 
@@ -1433,7 +1469,7 @@ Discussion
 ^^^^^^^^^^
 
 We specify ``multi=True`` to make Scapy wait for more answer packets after the first response is received.
-This is also the reason why we can't use the more convenient ``dhcp_request()`` function and have to construct the DCHP packet manually: ``dhcp_request()`` uses ``srp1()`` for sending and receiving and thus would immediately return after the first answer packet. 
+This is also the reason why we can't use the more convenient ``dhcp_request()`` function and have to construct the DHCP packet manually: ``dhcp_request()`` uses ``srp1()`` for sending and receiving and thus would immediately return after the first answer packet. 
 
 Moreover, Scapy normally makes sure that replies come from the same IP address the stimulus was sent to. But our DHCP packet is sent to the IP broadcast address (255.255.255.255) and any answer packet will have the IP address of the replying DHCP server as its source IP address (e.g. 192.168.1.1). Because these IP addresses don't match, we have to disable Scapy's check with ``conf.checkIPaddr = False`` before sending the stimulus.  
 

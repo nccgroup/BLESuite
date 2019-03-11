@@ -83,6 +83,21 @@ assert IP(raw(IP(dst="0.0.0.0/31"))).src == defaddr
 #b.i2m("
 #b.getfield
 
+= ThreeBytesField
+~ field threebytesfield
+
+class TestThreeBytesField(Packet):
+    fields_desc = [ 
+        X3BytesField('test1', None),
+        ThreeBytesField('test2', None),
+        LEX3BytesField('test3', None),
+        LEThreeBytesField('test4', None),
+    ]
+
+p = TestThreeBytesField(test1=0x123456, test2=123456, test3=0xfedbca, test4=567890)
+assert(raw(p) == b'\x12\x34\x56\x01\xe2\x40\xca\xdb\xfe\x52\xaa\x08')
+print(p.sprintf('%test1% %test2% %test3% %test4%'))
+assert(p.sprintf('%test1% %test2% %test3% %test4%') == '0x123456 123456 0xfedbca 567890')
 
 ############
 ############
@@ -1143,10 +1158,10 @@ True
 = Raise exception - test data
 
 dnsf = DNSStrField("test", "")
-assert(dnsf.getfield("", b"\x01x\x00") == (b"", b"x."))
+assert(dnsf.getfield(None, b"\x01x\x00") == (b"", b"x."))
 
 try:
-    dnsf.getfield("", b"\xff")
+    dnsf.getfield(None, b"\xc0\xff")
     assert(False)
 except (Scapy_Exception, IndexError):
     pass
@@ -1229,3 +1244,324 @@ try:
     assert(False)
 except FieldValueRangeException:
     pass
+
+= FlasgField - Python incompatible name
+
+assert Dot11().FCfield.to_DS is False
+
+########
+########
++ MultipleTypeField
+
+= Test initialization order
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ByteEnumField("atyp", 0x1, {0x1: "IPv4", 0x3: "DNS", 0x4: "IPv6"}),
+        MultipleTypeField(
+            [
+                # IPv4
+                (IPField("addr", "0.0.0.0"), lambda pkt: pkt.atyp == 0x1),
+                # DNS
+                (DNSStrField("addr", ""), lambda pkt: pkt.atyp == 0x3),
+                # IPv6
+                (IP6Field("addr", "::"), lambda pkt: pkt.atyp == 0x4),
+            ],
+            StrField("addr", "")
+        ),
+    ]
+
+= Default order
+
+a = DebugPacket(atyp=0x3, addr="scapy.net")
+a = DebugPacket(raw(a))
+assert a.addr == b"scapy.net."
+
+= Reversed order
+
+a = DebugPacket(addr="scapy.net", atyp=0x3)
+a = DebugPacket(raw(a))
+assert a.addr == b"scapy.net."
+
+########
+########
++ FlagsField
+
+= Test Flags Field Iterator
+
+class FlagsTest(Packet):
+    fields_desc = [FlagsField("flags", 0, 8,
+                              ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"])]
+
+= Test upper nibble
+
+a = FlagsTest(b"\xf0")
+flags = list(a.flags)
+
+assert len(flags) == 4
+assert "f4" in flags
+assert "f5" in flags
+assert "f6" in flags
+assert "f7" in flags
+
+= Test lower nibble
+
+a = FlagsTest(b"\x0f")
+flags = list(a.flags)
+
+assert len(flags) == 4
+assert "f3" in flags
+assert "f2" in flags
+assert "f1" in flags
+assert "f0" in flags
+
+= Test single flag 1
+
+a = FlagsTest(b"\x01")
+flags = list(a.flags)
+
+assert len(flags) == 1
+assert "f0" in flags
+
+= Test single flag 2
+
+a = FlagsTest(b"\x02")
+flags = list(a.flags)
+
+assert len(flags) == 1
+assert "f1" in flags
+
+= Test single flag 0x80
+
+a = FlagsTest(b"\x80")
+flags = list(a.flags)
+
+assert len(flags) == 1
+assert "f7" in flags
+
+= Test pattern 0x55
+
+a = FlagsTest(b"\x55")
+flags = list(a.flags)
+
+assert len(flags) == 4
+assert "f6" in flags
+assert "f2" in flags
+assert "f4" in flags
+assert "f0" in flags
+
+= Test pattern 0xAA
+
+a = FlagsTest(b"\xAA")
+flags = list(a.flags)
+
+assert len(flags) == 4
+assert "f7" in flags
+assert "f3" in flags
+assert "f5" in flags
+assert "f1" in flags
+
+= Test pattern 0x00
+
+a = FlagsTest(b"\x00")
+flags = list(a.flags)
+
+assert len(flags) == 0
+
+= Test pattern 0xFF
+
+a = FlagsTest(b"\xFF")
+flags = list(a.flags)
+
+assert len(flags) == 8
+assert "f7" in flags
+assert "f3" in flags
+assert "f5" in flags
+assert "f1" in flags
+assert "f6" in flags
+assert "f2" in flags
+assert "f4" in flags
+assert "f0" in flags
+
+
+########
+########
++ ScalingField
+
+= ScalingField Test default behaviour
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0)
+    ]
+
+x = DebugPacket()
+assert len(x) == 1
+assert x.data == 0
+
+x.data = 1
+assert x.data == 1
+
+= ScalingField Test string assignment
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1)
+    ]
+
+x = DebugPacket()
+
+x.data = '\x01'
+assert x.data == 0.1
+x.data = 2.0
+assert x.data == 2.0
+assert bytes(x) == b"\x14"
+x.data = b'\xff'
+assert x.data == 25.5
+x.data = '\x7f'
+assert x.data == 12.7
+
+
+= ScalingField Test scaling
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == 0.1
+x.data = 2.0
+assert x.data == 2.0
+assert bytes(x) == b"\x14"
+x.data = b'\xff'
+assert x.data == 25.5
+
+= ScalingField Test scaling signed
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, fmt="b")
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == 0.1
+x.data = 12.7
+assert x.data == 12.7
+assert bytes(x) == b"\x7f"
+x.data = b'\x80'
+assert x.data == -12.8
+x.data = -0.1
+assert x.data == -0.1
+assert bytes(x) == b"\xff"
+
+= ScalingField Test scaling signed offset
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-1, fmt="b")
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == -0.9
+x.data = 11.7
+assert x.data == 11.7
+assert bytes(x) == b"\x7f"
+x.data = b'\x80'
+assert x.data == -13.8
+x.data = -1.1
+assert x.data == -1.1
+assert bytes(x) == b"\xff"
+
+= ScalingField Test scaling offset
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-1)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == -0.9
+x.data = 11.7
+assert x.data == 11.7
+assert bytes(x) == b"\x7f"
+x.data = b'\x80'
+assert x.data == 11.8
+x.data = 24.5
+assert x.data == 24.5
+assert bytes(x) == b"\xff"
+
+= ScalingField Test unit
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, unit="V")
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == 1
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '1 V'
+
+= ScalingField Test unit and ndigits
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.123456, unit="V", ndigits=1)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == 0.1
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.1 V'
+
+= ScalingField Test unit and ndigits 2
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.123456, unit="V", ndigits=3)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+print(x.__repr__())
+assert x.data == 0.123
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.123 V'
+
+= ScalingField Test unit and ndigits 3
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.123456, unit="V", ndigits=5)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+print(x.__repr__())
+assert x.data == 0.12346
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.12346 V'
+
+= ScalingField randval
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-5)
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+assert r.min == -5
+assert r.max == 20

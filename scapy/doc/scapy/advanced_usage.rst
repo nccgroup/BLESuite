@@ -14,23 +14,23 @@ What is ASN.1?
 
 ASN.1 is a notation whose goal is to specify formats for data exchange. It is independent of the way data is encoded. Data encoding is specified in Encoding Rules.
 
-The most used encoding rules are BER (Basic Encoding Rules) and DER (Distinguished Encoding Rules). Both look the same, but the latter is specified to guarantee uniqueness of encoding. This property is quite interesting when speaking about cryptography, hashes and signatures.
+The most used encoding rules are BER (Basic Encoding Rules) and DER (Distinguished Encoding Rules). Both look the same, but the latter is specified to guarantee uniqueness of encoding. This property is quite interesting when speaking about cryptography, hashes, and signatures.
 
-ASN.1 provides basic objects: integers, many kinds of strings, floats, booleans, containers, etc. They are grouped in the so called Universal class. A given protocol can provide other objects which will be grouped in the Context class. For example, SNMP defines PDU_GET or PDU_SET objects. There are also the Application and Private classes.
+ASN.1 provides basic objects: integers, many kinds of strings, floats, booleans, containers, etc. They are grouped in the so-called Universal class. A given protocol can provide other objects which will be grouped in the Context class. For example, SNMP defines PDU_GET or PDU_SET objects. There are also the Application and Private classes.
 
-Each of theses objects is given a tag that will be used by the encoding rules. Tags from 1 are used for Universal class. 1 is boolean, 2 is integer, 3 is a bit string, 6 is an OID, 48 is for a sequence. Tags from the ``Context`` class begin at 0xa0. When encountering an object tagged by 0xa0, we'll need to know the context to be able to decode it. For example, in SNMP context, 0xa0 is a PDU_GET object, while in X509 context, it is a container for the certificate version.
+Each of these objects is given a tag that will be used by the encoding rules. Tags from 1 are used for Universal class. 1 is boolean, 2 is an integer, 3 is a bit string, 6 is an OID, 48 is for a sequence. Tags from the ``Context`` class begin at 0xa0. When encountering an object tagged by 0xa0, we'll need to know the context to be able to decode it. For example, in SNMP context, 0xa0 is a PDU_GET object, while in X509 context, it is a container for the certificate version.
 
 Other objects are created by assembling all those basic brick objects. The composition is done using sequences and arrays (sets) of previously defined or existing objects. The final object (an X509 certificate, a SNMP packet) is a tree whose non-leaf nodes are sequences and sets objects (or derived context objects), and whose leaf nodes are integers, strings, OID, etc.
 
 Scapy and ASN.1
 ---------------
 
-Scapy provides a way to easily encode or decode ASN.1 and also program those encoders/decoders. It is quite more lax than what an ASN.1 parser should be, and it kind of ignores constraints. It won't replace neither an ASN.1 parser nor an ASN.1 compiler. Actually, it has been written to be able to encode and decode broken ASN.1. It can handle corrupted encoded strings and can also create those.
+Scapy provides a way to easily encode or decode ASN.1 and also program those encoders/decoders. It is quite laxer than what an ASN.1 parser should be, and it kind of ignores constraints. It won't replace neither an ASN.1 parser nor an ASN.1 compiler. Actually, it has been written to be able to encode and decode broken ASN.1. It can handle corrupted encoded strings and can also create those.
 
 ASN.1 engine
 ^^^^^^^^^^^^
 
-Note: many of the classes definitions presented here use metaclasses. If you don't look precisely at the source code and you only rely on my captures, you may think they sometimes exhibit a kind of magic behaviour.
+Note: many of the classes definitions presented here use metaclasses. If you don't look precisely at the source code and you only rely on my captures, you may think they sometimes exhibit a kind of magic behavior.
 ``
 Scapy ASN.1 engine provides classes to link objects and their tags. They inherit from the ``ASN1_Class``. The first one is ``ASN1_Class_UNIVERSAL``, which provide tags for most Universal objects. Each new context (``SNMP``, ``X509``) will inherit from it and add its own objects.
 
@@ -397,7 +397,7 @@ Now, the hard part, the ASN.1 packet::
     bind_layers( UDP, SNMP, sport=161)
     bind_layers( UDP, SNMP, dport=161)
 
-That wasn't that much difficult. If you think that can't be that short to implement SNMP encoding/decoding and that I may may have cut too much, just look at the complete source code.
+That wasn't that much difficult. If you think that can't be that short to implement SNMP encoding/decoding and that I may have cut too much, just look at the complete source code.
 
 Now, how to use it? As usual::
 
@@ -493,9 +493,9 @@ It is even possible to graph it::
 Automata
 ========
 
-Scapy enables to create easily network automata. Scapy does not stick to a specific model like Moore or Mealy automata. It provides a flexible way for you to choose you way to go.
+Scapy enables to create easily network automata. Scapy does not stick to a specific model like Moore or Mealy automata. It provides a flexible way for you to choose your way to go.
 
-An automaton in Scapy is deterministic. It has different states. A start state and some end and error states. There are transitions from one state to another. Transitions can be transitions on a specific condition, transitions on the reception of a specific packet or transitions on a timeout. When a transition is taken, one or more actions can be run. An action can be bound to many transitions. Parameters can be passed from states to transitions and from transitions to states and actions.
+An automaton in Scapy is deterministic. It has different states. A start state and some end and error states. There are transitions from one state to another. Transitions can be transitions on a specific condition, transitions on the reception of a specific packet or transitions on a timeout. When a transition is taken, one or more actions can be run. An action can be bound to many transitions. Parameters can be passed from states to transitions, and from transitions to states and actions.
 
 From a programmer's point of view, states, transitions and actions are methods from an Automaton subclass. They are decorated to provide meta-information needed in order for the automaton to work.
 
@@ -681,7 +681,7 @@ Decorators
 Decorator for states
 ~~~~~~~~~~~~~~~~~~~~
 
-States are methods decorated by the result of the ``ATMT.state`` function. It can take 3 optional parameters, ``initial``, ``final`` and ``error``, that, when set to ``True``, indicate that the state is an initial, final or error state.
+States are methods decorated by the result of the ``ATMT.state`` function. It can take 3 optional parameters, ``initial``, ``final`` and ``error``, that, when set to ``True``, indicating that the state is an initial, final or error state.
 
 ::
 
@@ -706,7 +706,7 @@ States are methods decorated by the result of the ``ATMT.state`` function. It ca
 Decorators for transitions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Transitions are methods decorated by the result of one of ``ATMT.condition``, ``ATMT.receive_condition``, ``ATMT.timeout``. They all take as argument the state method they are related to. ``ATMT.timeout`` also have a mandatory ``timeout`` parameter to provide the timeout value in seconds. ``ATMT.condition`` and ``ATMT.receive_condition`` have an optional ``prio`` parameter so that the order in which conditions are evaluated can be forced. Default priority is 0. Transitions with the same priority level are called in an undetermined order.
+Transitions are methods decorated by the result of one of ``ATMT.condition``, ``ATMT.receive_condition``, ``ATMT.timeout``. They all take as argument the state method they are related to. ``ATMT.timeout`` also have a mandatory ``timeout`` parameter to provide the timeout value in seconds. ``ATMT.condition`` and ``ATMT.receive_condition`` have an optional ``prio`` parameter so that the order in which conditions are evaluated can be forced. The default priority is 0. Transitions with the same priority level are called in an undetermined order.
 
 When the automaton switches to a given state, the state's method is executed. Then transitions methods are called at specific moments until one triggers a new state (something like ``raise self.MY_NEW_STATE()``). First, right after the state's method returns, the ``ATMT.condition`` decorated methods are run by growing prio. Then each time a packet is received and accepted by the master filter all ``ATMT.receive_condition`` decorated hods are called by growing prio. When a timeout is reached since the time we entered into the current space, the corresponding ``ATMT.timeout`` decorated method is called.
 
@@ -739,7 +739,7 @@ When the automaton switches to a given state, the state's method is executed. Th
 Decorator for actions
 ~~~~~~~~~~~~~~~~~~~~~
 
-Actions are methods that are decorated by the return of ``ATMT.action`` function. This function takes the transition method it is bound to as first parameter and an optional priority ``prio`` as a second parameter. Default priority is 0. An action method can be decorated many times to be bound to many transitions.
+Actions are methods that are decorated by the return of ``ATMT.action`` function. This function takes the transition method it is bound to as first parameter and an optional priority ``prio`` as a second parameter. The default priority is 0. An action method can be decorated many times to be bound to many transitions.
 
 ::
 
@@ -786,9 +786,292 @@ Methods to overload
 
 Two methods are hooks to be overloaded:
 
-* The ``parse_args()`` method is called with arguments given at ``__init__()`` and ``run()``. Use that to parametrize the behaviour of your automaton.
+* The ``parse_args()`` method is called with arguments given at ``__init__()`` and ``run()``. Use that to parametrize the behavior of your automaton.
 
 * The ``master_filter()`` method is called each time a packet is sniffed and decides if it is interesting for the automaton. When working on a specific protocol, this is where you will ensure the packet belongs to the connection you are being part of, so that you do not need to make all the sanity checks in each transition.
+
+
+PipeTools
+=========
+
+Pipetool is a smart piping system allowing to perform complex stream data management. There are various differences between PipeTools and Automatons:
+
+- PipeTools have no states: data is always sent following the same pattern
+- PipeTools are not based on sockets but can handle more varied sources of data (and outputs) such as user input, pcap input (but also sniffing)
+- PipeTools are not class-based, but rather implemented by manually linking all their parts. That has drawbacks but allows to dynamically add a Source, Drain while running, and set multiple drains for the same source
+
+.. note:: Pipetool default objects are located inside ``scapy.pipetool``
+
+Class Types
+-----------
+
+There are 3 different class of objects used for data management:
+
+- ``Sources``
+- ``Drains``
+- ``Sinks``
+
+They are executed and handled by a ``PipeEngine`` object.
+
+When running, a pipetool engine waits for any available data from the Source, and send it in the Drains linked to it.
+The data then goes from Drains to Drains until it arrives in a Sink, the final state of this data.
+
+Here is a basic demo of what the PipeTool system can do
+
+.. image:: graphics/pipetool_engine.png
+
+For instance, this engine was generated with this code:
+
+>>> s = CLIFeeder()
+>>> s2 = CLIHighFeeder()
+>>> d1 = Drain()
+>>> d2 = TransformDrain(lambda x: x[::-1])
+>>> si1 = ConsoleSink()
+>>> si2 = QueueSink()
+>>> 
+>>> s > d1
+>>> d1 > si1
+>>> d1 > si2
+>>> 
+>>> s2 >> d1
+>>> d1 >> d2
+>>> d2 >> si1
+>>> 
+>>> p = PipeEngine()
+>>> p.add(s)
+>>> p.add(s2)
+>>> p.graph(target="> the_above_image.png")
+
+Let's start our PipeEngine:
+
+>>> p.start()
+
+Now, let's play with it:
+
+>>> s.send("foo")
+>'foo'
+>>> s2.send("bar")
+>>'rab'
+>>> s.send("i like potato")
+>'i like potato'
+>>> print(si2.recv(), ":", si2.recv())
+foo : i like potato
+
+Let's study what happens here:
+
+- there are two canals in a PipeEngine, a lower one and a higher one. Some Sources write on the lower one, some on the higher one and some on both.
+- most sources can be linked to any drain, on both lower and higher canals. The use of `>` indicates a link on the low canal, and `>>` on the higher one.
+- when we send some data in `s`, which is on the lower canal, as shown above, it goes through the `Drain` then is sent to the `QueueSink` and to the `ConsoleSink`
+- when we send some data in `s2`, it goes through the Drain, then the TransformDrain where the data is reversed (see the lambda), before being sent to `ConsoleSink` only. This explains why we only have the data of the lower sources inside the QueueSink: the higher one has not been linked.
+
+Most of the sinks receive from both lower and upper canals. This is verifiable using the `help(ConsoleSink)`
+
+>>> help(ConsoleSink)
+Help on class ConsoleSink in module scapy.pipetool:
+class ConsoleSink(Sink)
+ |  Print messages on low and high entries
+ |     +-------+
+ |  >>-|--.    |->>
+ |     | print |
+ |   >-|--'    |->
+ |     +-------+
+ |
+ [...]
+
+
+Sources
+^^^^^^^
+
+A Source is a class that generates some data. They are several source types integrated with Scapy, usable as-is, but you may also create yours.
+
+Default Source classes
+~~~~~~~~~~~~~~~~~~~~~~
+
+For any of those class, have a look at ``help([theclass])`` to get more information or the required parameters.
+
+- CLIFeeder : a source especially used in interactive software. its ``send(data)`` generates the event data on the lower canal
+- CLIHighFeeder : same than CLIFeeder, but writes on the higher canal
+- PeriodicSource : Generate messages periodically on the low canal.
+- AutoSource: the default source, that must be extended to create custom sources. 
+
+Create a custom Source
+~~~~~~~~~~~~~~~~~~~~~~
+
+To create a custom source, one must extend the ``AutoSource`` class.
+
+Do NOT use the default ``Source`` class except if you are really sure of what you are doing: it is only used internally, and is missing some implementation. The ``AutoSource`` is made to be used.
+
+
+To send data through it, the object must call its ``self._gen_data(msg)`` or ``self._gen_high_data(msg)`` functions, which send the data into the PipeEngine.
+
+The Source should also (if possible), set ``self.is_exhausted`` to ``True`` when empty, to allow the clean stop of the ``PipeEngine``. If the source is infinite, it will need a force-stop (see PipeEngine below)
+
+For instance, here is how CLIHighFeeder is implemented:
+
+    class CLIFeeder(CLIFeeder):
+        def send(self, msg):
+            self._gen_high_data(msg)
+        def close(self):
+            self.is_exhausted = True
+
+Drains
+^^^^^^
+
+Default Drain classes
+~~~~~~~~~~~~~~~~~~~~~
+
+Drains need to be linked on the entry that you are using. It can be either on the lower one (using ``>``) or the upper one (using ``>>``).
+See the basic example above.
+
+- Drain : the most basic Drain possible. Will pass on both low and high entry if linked properly.
+- TransformDrain : Apply a function to messages on low and high entry
+- UpDrain : Repeat messages from low entry to high exit
+- DownDrain : Repeat messages from high entry to low exit
+
+Create a custom Drain
+~~~~~~~~~~~~~~~~~~~~~
+
+To create a custom drain, one must extend the ``Drain`` class.
+
+A ``Drain`` object will receive data from the lower canal in its ``push`` method, and from the higher canal from its ``high_push`` method.
+
+To send the data back into the next linked Drain / Sink, it must call the ``self._send(msg)`` or ``self._high_send(msg)`` methods.
+
+For instance, here is how TransformDrain is implemented:
+
+    class TransformDrain(Drain):
+        def __init__(self, f, name=None):
+            Drain.__init__(self, name=name)
+            self.f = f
+        def push(self, msg):
+            self._send(self.f(msg))
+        def high_push(self, msg):
+            self._high_send(self.f(msg))
+
+Sinks
+^^^^^
+
+Default Sink classes
+~~~~~~~~~~~~~~~~~~~~
+
+- Sink : does not do anything. This must be extended to create custom sinks
+- ConsoleSink : Print messages on low and high entries
+- RawConsoleSink : Print messages on low and high entries, using os.write
+- TermSink : Print messages on low and high entries on a separate terminal
+- QueueSink: Collect messages from high and low entries and queue them. Messages are unqueued with the .recv() method.
+
+Create a custom Sink
+~~~~~~~~~~~~~~~~~~~~
+
+To create a custom sink, one must extend the ``Sink`` class.
+
+A ``Sink`` class receives data like a ``Drain``, from the lower canal in its ``push`` method, and from the higher canal from its ``high_push`` method.
+
+A ``Sink`` is the dead end of data, it won't be sent anywhere after it.
+
+For instance, here is how ConsoleSink is implemented:
+
+    class ConsoleSink(Sink):
+        def push(self, msg):
+            print(">%r" % msg)
+        def high_push(self, msg):
+            print(">>%r" % msg)
+
+Link objects
+------------
+
+As shown in the example, most sources can be linked to any drain, on both lower and higher canals.
+
+The use of `>` indicates a link on the low canal, and `>>` on the higher one.
+
+For instance
+
+>>> a = CLIFeeder()
+>>> b = Drain()
+>>> c = ConsoleSink()
+>>> a > b > c
+>>> p = PipeEngine()
+>>> p.add(a)
+
+This links a, b, and c on the lower canal. If you tried to send anything on the higher canal, for instance by adding
+
+>>> a2 = CLIHighFeeder()
+>>> a2 >> b
+>>> a2.send("hello")
+
+It would not do anything as the Drain is not linked to the Sink on the upper canal. However, one could do
+
+>>> a2 = CLIHighFeeder()
+>>> b2 = DownDrain()
+>>> a2 >> b2
+>>> b2 > b
+>>> a2.send("hello")
+
+The PipeEngine class
+--------------------
+
+The ``PipeEngine`` class is the core class of the Pipetool system. It must be initialized and passed the list of all Sources.
+
+There are two ways of passing sources:
+
+- during initialization: ``p = PipeEngine(source1, source2, ...)``
+- using the ``add(source)`` method
+
+A ``PipeEngine`` class must be started with ``.start()`` function. It may be force-stopped with the ``.stop()``, or cleanly stopped with ``.wait_and_stop()``
+
+A clean stop only works if the Sources is exhausted (has no data to send left).
+
+It can be printed into a graph using ``.graph()`` methods. see ``help(do_graph)`` for the list of available keyword arguments.
+
+Scapy advanced PipeTool objects
+-------------------------------
+
+.. note:: Unlike the previous objects, those are not located in ``scapy.pipetool`` but in ``scapy.scapypipes``
+
+Now that you know the default PipeTool objects, here are some more advanced ones, based on packet functionalities.
+
+- SniffSource : Read packets from an interface and send them to low exit.
+- RdpcapSource : Read packets from a PCAP file send them to low exit.
+- InjectSink : Packets received on low input are injected (sent) to an interface
+- WrpcapSink : Packets received on low input are written to PCAP file
+- UDPDrain : UDP payloads received on high entry are sent over UDP (complicated, have a look at ``help(UDPDrain)``)
+- FDSourceSink : Use a file descriptor as source and sink
+- TCPConnectPipe : TCP connect to addr:port and use it as source and sink
+- TCPListenPipe : TCP listen on [addr:]port and use the first connection as source and sink (complicated, have a look at ``help(TCPListenPipe)``)
+
+Triggering
+----------
+
+Some special sort of Drains exists: the Trigger Drains.
+
+Trigger Drains are special drains, that on receiving data not only pass it by but also send a "Trigger" input, that is received and handled by the next triggered drain (if it exists).
+
+For example, here is a basic TriggerDrain usage:
+
+>>> a = CLIFeeder()
+>>> d = TriggerDrain(lambda msg: True) # Pass messages and trigger when a condition is met
+>>> d2 = TriggeredValve()
+>>> s = ConsoleSink()
+>>> a > d > d2 > s
+>>> d ^ d2 # Link the triggers
+>>> p = PipeEngine(s)
+>>> p.start()
+INFO: Pipe engine thread started.
+>>> 
+>>> a.send("this will be printed")
+>'this will be printed'
+>>> a.send("this won't, because the valve was switched")
+>>> a.send("this will, because the valve was switched again")
+>'this will, because the valve was switched again'
+>>> p.stop()
+
+Several triggering Drains exist, they are pretty explicit. It is highly recommended to check the doc using ``help([the class])``
+
+- TriggeredMessage : Send a preloaded message when triggered and trigger in chain
+- TriggerDrain : Pass messages and trigger when a condition is met
+- TriggeredValve : Let messages alternatively pass or not, changing on trigger
+- TriggeredQueueingValve : Let messages alternatively pass or queued, changing on trigger
+- TriggeredSwitch : Let messages alternatively high or low, changing on trigger
 
 PROFINET IO RTC
 ===============
@@ -798,7 +1081,7 @@ PROFINET IO is an industrial protocol composed of different layers such as the R
 RTC data packet
 ---------------
 
-The first thing to do when building the RTC ``data`` buffer is to instanciate each Scapy packet which represents a piece of data. Each one of them may require some specific piece of configuration, such as its length. All packets and their configuration are:
+The first thing to do when building the RTC ``data`` buffer is to instantiate each Scapy packet which represents a piece of data. Each one of them may require some specific piece of configuration, such as its length. All packets and their configuration are:
 
 * ``PNIORealTimeRawData``: a simple raw data like ``Raw``
 
@@ -813,7 +1096,7 @@ The first thing to do when building the RTC ``data`` buffer is to instanciate ea
 
   * Doesn't require any configuration
 
-To instanciate one of these packets with its configuration, the ``config`` argument must be given. It is a ``dict()`` which contains all the required piece of configuration::
+To instantiate one of these packets with its configuration, the ``config`` argument must be given. It is a ``dict()`` which contains all the required piece of configuration::
 
     >>> load_contrib('pnio_rtc')
     >>> raw(PNIORealTimeRawData(load='AAA', config={'length': 4}))
@@ -879,7 +1162,7 @@ able to dissect it::
       dataStatus= primary+validData+run+no_problem
       transferStatus= 0
 
-For Scapy to be able to dissect it correctly, one must also configure the layer for it to know the location of each data in the buffer. This configuration is saved in the dictionary ``conf.contribs["PNIO_RTC"]`` which can be updated with the ``pnio_update_config`` method. Each item in the dictionary uses the tuple ``(Ether.src, Ether.dst)`` as key, to be able to separate the configuration of each communication. Each value is then a list of a tuple which describes a data packet. It is composed of the negative index, from the end of the data buffer, of the packet position, the class of the packet as second item and the ``config`` dictionary to provide to the class as last. If we continue the previous example, here is the configuration to set::
+For Scapy to be able to dissect it correctly, one must also configure the layer for it to know the location of each data in the buffer. This configuration is saved in the dictionary ``conf.contribs["PNIO_RTC"]`` which can be updated with the ``pnio_update_config`` method. Each item in the dictionary uses the tuple ``(Ether.src, Ether.dst)`` as key, to be able to separate the configuration of each communication. Each value is then a list of a tuple which describes a data packet. It is composed of the negative index, from the end of the data buffer, of the packet position, the class of the packet as the second item and the ``config`` dictionary to provide to the class as last. If we continue the previous example, here is the configuration to set::
 
     >>> load_contrib("pnio")
     >>> e=Ether(src='00:01:02:03:04:05', dst='06:07:08:09:0a:0b') / ProfinetIO() / p
@@ -1108,25 +1391,25 @@ Hands-On
 
 Send a message over Linux SocketCAN::
 
-    load_contrib('cansocket')
-    socket = CANSocket(iface='can0')
-    packet = CAN(identifier=0x123, data=b'01020304')
+   load_contrib('cansocket')
+   socket = CANSocket(iface='can0')
+   packet = CAN(identifier=0x123, data=b'01020304')
 
-    socket.sr1(packet, timeout=1)
+   socket.sr1(packet, timeout=1)
 
-    srcan(packet, 'can0', timeout=1)
+   srcan(packet, 'can0', timeout=1)
 
 Send a message over a Vector-Interface::
 
-    import can
-    conf.contribs['CANSocket'] = {'use-python-can' : True}
-    load_contrib('cansocket')
-    from can.interfaces.vector import VectorBus
-    socket = CANSocket(iface=VectorBus(0, bitrate=1000000))
-    packet = CAN(identifier=0x123, data=b'01020304')
-    socket.sr1(packet)
+   import can
+   conf.contribs['CANSocket'] = {'use-python-can' : True}
+   load_contrib('cansocket')
+   from can.interfaces.vector import VectorBus
+   socket = CANSocket(iface=VectorBus(0, bitrate=1000000))
+   packet = CAN(identifier=0x123, data=b'01020304')
+   socket.sr1(packet)
 
-    srcan(packet, VectorBus(0, bitrate=1000000))
+   srcan(packet, VectorBus(0, bitrate=1000000))
 
 
 
@@ -1136,95 +1419,607 @@ CAN Layer
 Setup
 -----
 
-This commands enable a virtual CAN interface on your machine::
+These commands enable a virtual CAN interface on your machine::
 
-    from scapy.layers.can import *
-    import os
+   from scapy.layers.can import *
+   import os
 
-    bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
-    os.system(bashCommand)
+   bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
+   os.system(bashCommand)
 
-If it's required, the CAN interface can be set into an listen-only or loop back mode with ip link set commands::
+If it's required, the CAN interface can be set into a listen-only or loopback mode with ip link set commands:
 
-    ip link set vcan0 type can help  # shows additional information
+::
+
+   ip link set vcan0 type can help  # shows additional information
+
 
 CAN Frame
 ---------
 
 Creating a standard CAN frame::
 
-    frame = CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+   frame = CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
 Creating an extended CAN frame::
 
-    frame = CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+   frame = CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
 Writing and reading to pcap files::
 
-    x = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
-    wrpcap('/tmp/scapyPcapTest.pcap', x, append=False)
-    y = rdpcap('/tmp/scapyPcapTest.pcap', 1)
+   x = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+   wrpcap('/tmp/scapyPcapTest.pcap', x, append=False)
+   y = rdpcap('/tmp/scapyPcapTest.pcap', 1)
 
-Native CANSocket
+CANSocket native
 ----------------
 
 Creating a simple native CANSocket::
 
-    conf.contribs['CANSocket'] = {'use-python-can': False} #(default)
-    load_contrib('cansocket')
+   conf.contribs['CANSocket'] = {'use-python-can': False} #(default)
+   load_contrib('cansocket')
 
-    # Simple Socket
-    socket = CANSocket(iface="vcan0")
+   # Simple Socket
+   socket = CANSocket(iface="vcan0")
 
- Creating a native CANSocket only listen for messages with Id == 0x200::
+Creating a native CANSocket only listen for messages with Id == 0x200::
 
-    socket = CANSocket(iface="vcan0", canfilters=[{'can_id': 0x200, 'can_mask': 0x7FF}])
+   socket = CANSocket(iface="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x7FF}])
 
 Creating a native CANSocket only listen for messages with Id >= 0x200 and Id <= 0x2ff::
 
-    socket = CANSocket(iface="vcan0", canfilters=[{'can_id': 0x200, 'can_mask': 0x700}])
+   socket = CANSocket(iface="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x700}])
 
 Creating a native CANSocket only listen for messages with Id != 0x200::
 
-    socket = CANSocket(iface="vcan0", canfilters=[{'can_id': 0x200 | CAN_INV_FILTER, 'can_mask': 0x7FF}])
+   socket = CANSocket(iface="vcan0", can_filters=[{'can_id': 0x200 | CAN_INV_FILTER, 'can_mask': 0x7FF}])
 
-Creating a native CANSocket with multiple canfilters::
+Creating a native CANSocket with multiple can_filters::
 
-    socket = CANSocket(iface='vcan0', canfilters=[{'can_id': 0x200, 'can_mask': 0x7ff},
-                                                     {'can_id': 0x400, 'can_mask': 0x7ff},
-                                                     {'can_id': 0x600, 'can_mask': 0x7ff},
-                                                     {'can_id': 0x7ff, 'can_mask': 0x7ff}])
+   socket = CANSocket(iface='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff},
+                                                  {'can_id': 0x400, 'can_mask': 0x7ff},
+                                                  {'can_id': 0x600, 'can_mask': 0x7ff},
+                                                  {'can_id': 0x7ff, 'can_mask': 0x7ff}])
 
 Creating a native CANSocket which also receives its own messages::
 
-    socket = CANSocket(iface="vcan0", receive_own_messages=True)
+   socket = CANSocket(iface="vcan0", receive_own_messages=True)
 
 
-python-can CANSocket
+CANSocket python-can
 --------------------
 
 Ways of creating a python-can CANSocket::
 
-    conf.contribs['CANSocket'] = {'use-python-can': True}
-    load_contrib('cansocket')
-    import can
+   conf.contribs['CANSocket'] = {'use-python-can': True}
+   load_contrib('cansocket')
+   import can
 
 Creating a simple python-can CANSocket::
 
-    socket = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000
+   socket = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
 
 Creating a python-can CANSocket with multiple filters::
 
-    socket = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000,
-                    canfilters=[{'can_id': 0x200, 'can_mask': 0x7ff},
-                                {'can_id': 0x400, 'can_mask': 0x7ff},
-                                {'can_id': 0x600, 'can_mask': 0x7ff},
-                                {'can_id': 0x7ff, 'can_mask': 0x7ff}]))
+   socket = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000,
+                   can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff},
+                               {'can_id': 0x400, 'can_mask': 0x7ff},
+                               {'can_id': 0x600, 'can_mask': 0x7ff},
+                               {'can_id': 0x7ff, 'can_mask': 0x7ff}]))
 
-For further details on python-can check: https://python-can.readthedocs.io/en/2.1.0/
+For further details on python-can check: https://python-can.readthedocs.io/en/2.2.0/
 
-Setup
------
+CANSocket MITM attack with bridge and sniff
+--------------------------------------------------------
+
+Set up two vcans on linux terminal::
+
+   sudo modprobe vcan
+   sudo ip link add name vcan0 type vcan
+   sudo ip link add name vcan1 type vcan
+   sudo ip link set dev vcan0 up
+   sudo ip link set dev vcan1 up
+
+Import modules::
+
+   import threading
+   load_contrib('cansocket')
+   load_layer("can")
+
+Create can sockets for attack::
+
+   socket0 = CANSocket(iface='vcan0')
+   socket1 = CANSocket(iface='vcan1')
+
+Create a function to send packet with threading::
+
+   def sendPacket():
+       sleep(0.2)
+       socket0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+
+Create a function for forwarding or change packets::
+
+   def forwarding(pkt):
+       return pkt
+
+Create a function to bridge and sniff between two sockets::
+
+   def bridge():
+       bSocket0 = CANSocket(iface='vcan0')
+       bSocket1 = CANSocket(iface='vcan1')
+       bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=1)
+       bSocket0.close()
+       bSocket1.close()
+
+Create threads for sending packet and to bridge and sniff::
+
+   threadBridge = threading.Thread(target=bridge)
+   threadSender = threading.Thread(target=sendMessage)
+
+Start the threads::
+
+   threadBridge.start()
+   threadSender.start()
+
+Sniff packets::
+
+   packets = socket1.sniff(timeout=0.3)
+
+Close the sockets::
+
+   socket0.close()
+   socket1.close()
+
+CAN Calibration Protocol (CCP)
+------------------------------
+
+CCP is derived from CAN. The CAN-header is part of a CCP frame. CCP has two types
+of message objects. One is called Command Receive Object (CRO), the other is called
+Data Transmission Object (DTO). Usually CROs are sent to an ECU, and DTOs are received
+from an ECU. The information, if one DTO answers a CRO is implemented through a counter
+field (ctr). If both objects have the same counter value, the payload of a DTO object
+can be interpreted from the command of the associated CRO object.
+
+Creating a CRO message::
+
+    CCP(identifier=0x700)/CRO(ctr=1)/CONNECT(station_address=0x02)
+    CCP(identifier=0x711)/CRO(ctr=2)/GET_SEED(resource=2)
+    CCP(identifier=0x711)/CRO(ctr=3)/UNLOCK(key=b"123456")
+
+If we aren't interested in the DTO of an ECU, we can just send a CRO message like this:
+Sending a CRO message::
+
+    pkt = CCP(identifier=0x700)/CRO(ctr=1)/CONNECT(station_address=0x02)
+    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
+    sock.send(pkt)
+
+If we are interested in the DTO of an ECU, we need to set the basecls parameter of the
+CANSocket to CCP and we need to use sr1:
+Sending a CRO message::
+
+    cro = CCP(identifier=0x700)/CRO(ctr=0x53)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12")
+    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000), basecls=CCP)
+    dto = sock.sr1(cro)
+    dto.show()
+    ###[ CAN Calibration Protocol ]###
+      flags=
+      identifier= 0x700
+      length= 8
+      reserved= 0
+    ###[ DTO ]###
+         packet_id= 0xff
+         return_code= acknowledge / no error
+         ctr= 83
+    ###[ PROGRAM_6_DTO ]###
+            MTA0_extension= 2
+            MTA0_address= 0x34002006
+
+Since sr1 calls the answers function, our payload of the DTO objects gets interpreted with the
+command of our CRO object.
+
+ISOTP message
+-------------
+
+Creating an ISOTP message::
+
+   load_contrib('isotp')
+   ISOTP(src=0x241, dst=0x641, data=b"\x3eabc")
+
+Creating an ISOTP message with extended addressing::
+
+   ISOTP(src=0x241, dst=0x641, exdst=0x41, data=b"\x3eabc")
+
+Creating an ISOTP message with extended addressing::
+
+   ISOTP(src=0x241, dst=0x641, exdst=0x41, exsrc=0x41, data=b"\x3eabc")
+
+Create CAN-frames from an ISOTP message::
+
+   ISOTP(src=0x241, dst=0x641, exdst=0x41, exsrc=0x55, data=b"\x3eabc" * 10).fragment()
+
+Send ISOTP message over ISOTP socket::
+
+   isoTpSocket = ISOTPSocket('vcan0', sid=0x241, did=0x641)
+   isoTpMessage = ISOTP('Message')
+   isoTpSocket.send(isoTpMessage)
+
+Sniff ISOTP message::
+
+   isoTpSocket = ISOTPSocket('vcan0', sid=0x641, did=0x241)
+   packets = isoTpSocket.sniff(timeout=0.5)
+
+ISOTP MITM attack with bridge and sniff
+---------------------------------------
+
+Set up two vcans on linux terminal::
+
+   sudo modprobe vcan
+   sudo ip link add name vcan0 type vcan
+   sudo ip link add name vcan1 type vcan
+   sudo ip link set dev vcan0 up
+   sudo ip link set dev vcan1 up
+
+Set up ISOTP::
+
+.. note::
+
+    First make sure you build an iso-tp kernel module.
+
+When the vcan core module is loaded with "sudo modprobe vcan" the iso-tp module can be loaded to the kernel.
+
+Therefore navigate to isotp directory, and load module with "sudo insmod ./net/can/can-isotp.ko". (Tested on Kernel 4.9.135-1-MANJARO)
+
+Detailed instructions you find in https://github.com/hartkopp/can-isotp.
+
+Import modules::
+
+   import threading
+   load_contrib('cansocket')
+   conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}
+   load_contrib('isotp')
+
+Create to ISOTP sockets for attack::
+
+   isoTpSocketVCan0 = ISOTPSocket('vcan0', sid=0x241, did=0x641)
+   isoTpSocketVCan1 = ISOTPSocket('vcan1', sid=0x641, did=0x241)
+
+Create function to send packet on vcan0 with threading::
+
+   def sendPacketWithISOTPSocket():
+       sleep(0.2)
+       packet = ISOTP('Request')
+       isoTpSocketVCan0.send(packet)
+
+Create function to forward packet::
+
+   def forwarding(pkt):
+       return pkt
+
+Create function to bridge and sniff between two buses::
+
+   def bridge():
+       bSocket0 = ISOTPSocket('vcan0', sid=0x641, did=0x241)
+       bSocket1 = ISOTPSocket('vcan1', sid=0x241, did=0x641)
+       bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=1)
+       bSocket0.close()
+       bSocket1.close()
+
+Create threads for sending packet and to bridge and sniff::
+
+   threadBridge = threading.Thread(target=bridge)
+   threadSender = threading.Thread(target=sendPacketWithISOTPSocket)
+
+Start threads are based on Linux kernel modules. The python-can project is used to support CAN and CANSockets on other systems, besides Linux. This guide explains the hardware setup on a BeagleBone Black. The BeagleBone Black was chosen because of its two CAN interfaces on the main processor. The presence of two CAN interfaces in one device gives the possibility of CAN MITM attacks and session hijacking. The Cannelloni framework turns a BeagleBone Black into a CAN-to-UDP interface, which gives you the freedom to run Scapy on a more powerful machine.::
+
+   threadBridge.start()
+   threadSender.start()
+
+Sniff on vcan1::
+
+   receive = isoTpSocketVCan1.sniff(timeout=1)
+
+Close sockets::
+
+   isoTpSocketVCan0.close()
+   isoTpSocketVCan1.close()
+
+An ISOTPSocket will not respect ``src, dst, exdst, exsrc`` of an ISOTP message object.
+
+ISOTP Sockets
+-------------
+
+Scapy provides two kinds of ISOTP Sockets. One implementation, the ISOTPNativeSocket
+is using the Linux kernel module from Hartkopp. The other implementation, the ISOTPSoftSocket
+is completely implemented in Python. This implementation can be used on Linux,
+Windows, and OSX.
+
+ISOTPNativeSocket
+^^^^^^^^^^^^^^^^^
+
+**Requires:**
+
+* Python3
+* Linux
+* Hartkopp's Linux kernel module: ``https://github.com/hartkopp/can-isotp.git``
+
+During pentests, the ISOTPNativeSockets do have a better performance and
+reliability, usually. If you are working on Linux, consider this implementation::
+
+   conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}
+   load_contrib('isotp')
+   sock = ISOTPSocket("can0", sid=0x641, did=0x241)
+
+Since this implementation is using a standard Linux socket, all Scapy functions
+like ``sniff, sr, sr1, bridge_and_sniff`` work out of the box.
+
+ISOTPSoftSocket
+^^^^^^^^^^^^^^^
+
+ISOTPSoftSockets can use any CANSocket. This gives the flexibility to use all
+python-can interfaces. Additionally, these sockets work on Python2 and Python3.
+Usage on Linux with native CANSockets::
+
+   conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+   load_contrib('isotp')
+   with ISOTPSocket("can0", sid=0x641, did=0x241) as sock:
+       sock.send(...)
+
+Usage with python-can CANSockets::
+
+   conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+   conf.contribs['CANSocket'] = {'use-python-can': True}
+   load_contrib('isotp')
+   with ISOTPSocket(CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel="can0", bitrate=250000)), sid=0x641, did=0x241) as sock:
+       sock.send(...)
+
+This second example allows the usage of any ``python_can.interface`` object.
+
+**Attention:** The internal implementation of ISOTPSoftSockets requires a background
+thread. In order to be able to close this thread properly, we suggest the use of
+Pythons ``with`` statement.
+
+
+UDS
+---
+
+Customization of UDS_RDBI, UDS_WDBI
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In real-world use-cases, the UDS layer is heavily customized. OEMs define there own substructure of packets.
+Especially the packets ReadDataByIdentifier or WriteDataByIdentifier have a very OEM or even ECU specific
+substructure. Therefore a ``StrField`` ``dataRecord`` is not added to the ``field_desc``.
+The intended usage is to create ECU or OEM specific description files, which extend the general UDS layer of
+Scapy with further protocol implementations.
+
+Customization example::
+
+    cat scapy/contrib/automotive/OEM-XYZ/car-model-xyz.py
+    #! /usr/bin/env python
+
+    # Protocol customization for car model xyz of OEM XYZ
+    # This file contains further OEM car model specific UDS additions.
+
+    from scapy.packet import Packet
+    from scapy.contrib.automotive.uds import *
+
+    # Define a new packet substructure
+
+    class DBI_IP(Packet):
+    name = 'DataByIdentifier_IP_Packet'
+    fields_desc = [
+        ByteField('ADDRESS_FORMAT_ID', 0),
+        IPField('IP', ''),
+        IPField('SUBNETMASK', ''),
+        IPField('DEFAULT_GATEWAY', '')
+    ]
+
+    # Bind the new substructure onto the existing UDS packets
+
+    bind_layers(UDS_RDBIPR, DBI_IP, dataIdentifier=0x172b)
+    bind_layers(UDS_WDBI, DBI_IP, dataIdentifier=0x172b)
+
+    # Give add a nice name to dataIdentifiers enum
+
+    UDS_RDBI.dataIdentifiers[0x172b] = 'GatewayIP'
+
+If one wants to work with this custom additions, these can be loaded at runtime to the Scapy interpreter::
+
+    >>> load_contrib("automotive.uds")
+    >>> load_contrib("automotive.OEM-XYZ.car-model-xyz")
+
+    >>> pkt = UDS()/UDS_WDBI()/DBI_IP(IP='192.168.2.1', SUBNETMASK='255.255.255.0', DEFAULT_GATEWAY='192.168.2.1')
+
+    >>> pkt.show()
+    ###[ UDS ]###
+      service= WriteDataByIdentifier
+    ###[ WriteDataByIdentifier ]###
+         dataIdentifier= GatewayIP
+         dataRecord= 0
+    ###[ DataByIdentifier_IP_Packet ]###
+            ADDRESS_FORMAT_ID= 0
+            IP= 192.168.2.1
+            SUBNETMASK= 255.255.255.0
+            DEFAULT_GATEWAY= 192.168.2.1
+
+    >>> hexdump(pkt)
+    0000  2E 17 2B 00 C0 A8 02 01 FF FF FF 00 C0 A8 02 01  ..+.............
+
+
+
+SOME/IP and SOME/IP SD messages
+-------------------------------
+
+Creating a SOME/IP message
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example shows a SOME/IP message which requests a service 0x1234 with the method 0x421. Different types of SOME/IP messages follow the same procedure and their specifications can be seen here ``http://www.some-ip.com/papers/cache/AUTOSAR_TR_SomeIpExample_4.2.1.pdf``.
+
+
+Load the contribution::
+
+   load_contrib("automotive.someip")
+
+Create UDP package::
+
+   u = UDP(sport=30509, dport=30509)
+
+Create IP package::
+
+   i = IP(src="192.168.0.13", dst="192.168.0.10")
+
+Create SOME/IP package::
+
+   sip = SOMEIP()
+   sip.iface_ver = 0
+   sip.proto_ver = 1
+   sip.msg_type = "REQUEST"
+   sip.retcode = "E_OK"
+   sip.msg_id.srv_id = 0x1234
+   sip.msg_id.method_id = 0x421
+
+Add the payload::
+
+   sip.add_payload(Raw ("Hello"))
+
+Stack it and send it::
+
+   p = i/u/sip
+   send(p)
+
+
+Creating a SOME/IP SD message
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In this example a SOME/IP SD offer service message is shown with an IPv4 endpoint. Different entries and options basically follow the same procedure as shown here and can be seen at ``https://www.autosar.org/fileadmin/user_upload/standards/classic/4-3/AUTOSAR_SWS_ServiceDiscovery.pdf``.
+
+Load the contribution::
+
+   load_contrib("automotive.someip_sd")
+
+Create UDP package::
+
+   u = UDP(sport=30490, dport=30490)
+
+The UDP port must be the one which was chosen for the SOME/IP SD transmission.
+
+Create IP package::
+
+   i = IP(src="192.168.0.13", dst="224.224.224.245")
+
+The IP source must be from the service and the destination address needs to be the chosen multicast address.
+
+Create the entry array input::
+
+   ea = SDEntry_Service()
+
+   ea.type = 0x01
+   ea.srv_id = 0x1234
+   ea.inst_id = 0x5678
+   ea.major_ver = 0x00
+   ea.ttl = 3
+
+Create the options array input::
+
+   oa = SDOption_IP4_Endpoint()
+   oa.addr = "192.168.0.13"
+   oa.l4_proto = 0x11
+   oa.port = 30509
+
+l4_proto defines the protocol for the communication with the endpoint, UDP in this case.
+
+Create the SD package and put in the inputs::
+
+   sd = SD()
+   sd.set_entryArray(ea)
+   sd.set_optionArray(oa)
+   spsd = sd.get_someip(True)
+
+The get_someip method stacks the SOMEIP/SD message on top of a SOME/IP message, which has the desired SOME/IP values prefilled for the SOME/IP SD package transmission.
+
+Stack it and send it::
+
+   p = i/u/spsd
+   send(p)
+
+
+
+
+OBD message
+-------------
+
+OBD is implemented on top of ISOTP. Use an ISOTPSocket for the communication with a ECU. 
+You should set the parameters `basecls=OBD` and `padding=True` in your ISOTPSocket init call.
+
+OBD is split into different service groups. Here are some example requests:
+
+Request supported PIDs of service 0x01::
+
+   req = OBD()/OBD_S01(pid=[0x00])
+
+The response will contain a PacketListField, called `data_records`. This field contains the actual response::
+
+   resp = OBD(service=65)/OBD_S01_PID(data_records=[OBD_S01_PID_Record(pid=0)/OBD_PID00(supported_pids=3196041235)])
+   resp.show()
+   ###[ On-board diagnostics ]### 
+     service= CurrentPowertrainDiagnosticDataResponse
+   ###[ Parameter IDs ]### 
+        \data_records\
+         |###[ OBD_S01_PID_Record ]### 
+         |  pid= 0x0
+         |###[ PID_00_PIDsSupported ]### 
+         |     supported_pids= PID20+PID1F+PID1C+PID15+PID14+PID13+PID11+PID10+PID0F+PID0E+PID0D+PID0C+PID0B+PID0A+PID07+PID06+PID05+PID04+PID03+PID01
+
+Let's assume our ECU under test supports the pid 0x15::
+   
+   req = OBD()/OBD_S01(pid=[0x15])
+   resp = sock.sr1(req)
+   resp.show()
+   ###[ On-board diagnostics ]### 
+     service= CurrentPowertrainDiagnosticDataResponse
+   ###[ Parameter IDs ]### 
+        \data_records\
+         |###[ OBD_S01_PID_Record ]### 
+         |  pid= 0x15
+         |###[ PID_15_OxygenSensor2 ]### 
+         |     outputVoltage= 1.275 V
+         |     trim= 0 %
+
+
+The different services in OBD support different kinds of data. 
+Service 01 and Service 02 support Parameter Identifiers (pid).
+Service 03, 07 and 0A support Diagnostic Trouble codes (dtc).
+Service 04 doesn't require a payload.
+Service 05 is not implemented on OBD over CAN.
+Service 06 support Monitoring Identifiers (mid).
+Service 08 support Test Identifiers (tid).
+Service 09 support Information Identifiers (iid).
+
+Examples:
+
+Request supported Information Identifiers::
+
+   req = OBD()/OBD_S09(iid=[0x00])
+
+Request the Vehicle Identification Number (VIN)::
+
+   req = OBD()/OBD_S09(iid=0x02)
+   resp = sock.sr1(req)
+   resp.show()
+   ###[ On-board diagnostics ]### 
+     service= VehicleInformationResponse
+   ###[ Infotype IDs ]###
+        \data_records\
+         |###[ OBD_S09_IID_Record ]###
+         |  iid= 0x2
+         |###[ IID_02_VehicleIdentificationNumber ]###
+         |     count= 1
+         |     vehicle_identification_numbers= ['W0L000051T2123456']
+
+   
+
+
+Test-Setup on a BeagleBone Black
+--------------------------------
 
 Hardware Setup
 ^^^^^^^^^^^^^^
@@ -1243,7 +2038,7 @@ Beagle Bone Black Operating System Setup
        -iot-armhf-2017-03-19-4gb.img.xz
 
 
-   After the download, copy it to an SD-Card with minimum 4 GB storage.
+   After the download, copy it to an SD-Card with minimum of 4 GB storage.
 
    ::
 
@@ -1255,7 +2050,7 @@ Beagle Bone Black Operating System Setup
    | USB-WiFi dongles are well supported by Debian Linux. Login over SSH
      on the BBB and add the WiFi network credentials to the file
      ``/var/lib/connman/wifi.config``. If a USB-WiFi dongle is not
-     available, it is also possible to share the host’s internet
+     available, it is also possible to share the host's internet
      connection with the Ethernet connection of the BBB emulated over
      USB. A tutorial to share the host network connection can be found
      on this page:
@@ -1291,7 +2086,7 @@ Dual-CAN Setup
 ~~~~~~~~~~~~~~
 
 #. | **Device tree setup**
-   | You’ll need to follow this section only if you want to use two CAN
+   | You'll need to follow this section only if you want to use two CAN
     interfaces (DCAN0 and DCAN1). This will disable I2C2 from using pins
     P9.19 and P9.20, which are needed by DCAN0. You only need to perform the
     steps in this section once.
@@ -1299,7 +2094,7 @@ Dual-CAN Setup
    | Warning: The configuration in this section will disable BBB capes from
     working. Each cape has a small I2C EEPROM that stores info that the BBB
     needs to know in order to communicate with the cape. Disable I2C2, and
-    the BBB has no way to talk to cape EEPROMs. Of course, if you don’t use
+    the BBB has no way to talk to cape EEPROMs. Of course, if you don't use
     capes then this is not a problem.
 
    | Acquire DTS sources that matches your kernel version. Go
@@ -1440,7 +2235,7 @@ Dual-CAN Setup
        5: P-O-L-   1 Override Board Name,00A0,Override Manuf, BB-CAN1
 
 
-   If something went wrong, ``dmesg`` provides kernel messages to analyze the root of failure.
+   If something went wrong, ``dmesg`` provides kernel messages to analyse the root of failure.
 
 #. | **References**
 
@@ -1458,7 +2253,7 @@ ISO-TP Kernel Module Installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A Linux ISO-TP kernel module can be downloaded from this website:
-``https://github.com/ hartkopp/can-isotp.git``. The file
+``https://github.com/hartkopp/can-isotp.git``. The file
 ``README.isotp`` in this repository provides all information and
 necessary steps for downloading and building this kernel module. The
 ISO-TP kernel module should also be added to the ``/etc/modules`` file,
@@ -1467,16 +2262,47 @@ to load this module automatically at system boot of the BBB.
 CAN-Interface Setup
 ~~~~~~~~~~~~~~~~~~~
 
-As final step to prepare the BBB’s CAN interfaces for usage, these
-interfaces have to be setup through some terminal commands. The bitrate
+As the final step to prepare the BBB's CAN interfaces for usage, these
+interfaces have to be set up through some terminal commands. The bitrate
 can be chosen to fit the bitrate of a CAN bus under test.
 
 ::
 
     ip link set can0 up type can bitrate 500000
     ip link set can1 up type can bitrate 500000
-    ifconfig can0 up
-    ifconfig can1 up
+
+Raspberry Pi SOME/IP setup
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To build a small test environment in which you can send SOME/IP messages to and from server instances or disguise yourself as a server, one Raspberry Pi, your laptop and the vsomeip library are sufficient.
+
+#. | **Download image**
+
+   Download the latest raspbian image (``https://www.raspberrypi.org/downloads/raspbian/``) and install it on the Raspberry.
+
+#. | **Vsomeip setup**
+
+   Download the vsomeip library on the Rapsberry, apply the git patch so it can work with the newer boost libraries and then install it.
+
+   ::
+
+      git clone https://github.com/GENIVI/vsomeip.git
+      cd vsomeip
+      wget -O 0001-Support-boost-v1.66.patch.zip \
+      https://github.com/GENIVI/vsomeip/files/2244890/0001-Support-boost-v1.66.patch.zip
+      unzip 0001-Support-boost-v1.66.patch.zip
+      git apply 0001-Support-boost-v1.66.patch
+      mkdir build
+      cd build
+      cmake -DENABLE_SIGNAL_HANDLING=1 ..
+      make
+      make install
+
+#. | **Make applications**
+
+   Write some small applications which function as either a service or a client and use the Scapy SOME/IP implementation to communicate with the client or the server. Examples for vsomeip applications are available on the vsomeip github wiki page (``https://github.com/GENIVI/vsomeip/wiki/vsomeip-in-10-minutes``).
+
+
 
 Software Setup
 ^^^^^^^^^^^^^^
@@ -1491,7 +2317,7 @@ multiple remote CAN devices on his machine. The framework can be
 downloaded from this website:
 ``https://github.com/mguentner/cannelloni.git``. The ``README.md`` file
 explains the installation and usage in detail. Cannelloni needs virtual
-CAN interfaces on the operators machine. The next listing shows the
+CAN interfaces on the operator's machine. The next listing shows the
 setup of virtual CAN interfaces.
 
 ::

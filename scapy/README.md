@@ -1,17 +1,19 @@
 <p align="center">
-  <img src="doc/scapy_logo.png" width=200>
+<img src="doc/scapy_logo.png" width=200>
 </p>
 
-# Scapy #
+<!-- start_ppi_description -->
+
+# Scapy
 
 [![Travis Build Status](https://travis-ci.org/secdev/scapy.svg?branch=master)](https://travis-ci.org/secdev/scapy)
 [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/secdev/scapy?svg=true)](https://ci.appveyor.com/project/secdev/scapy)
 [![Codecov Status](https://codecov.io/gh/secdev/scapy/branch/master/graph/badge.svg)](https://codecov.io/gh/secdev/scapy)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/30ee6772bb264a689a2604f5cdb0437b)](https://www.codacy.com/app/secdev/scapy?utm_source=github.com&utm_medium=referral&utm_content=secdev/scapy&utm_campaign=Badge_Grade)
 [![PyPI Version](https://img.shields.io/pypi/v/scapy.svg)](https://pypi.python.org/pypi/scapy/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/scapy.svg)](https://pypi.python.org/pypi/scapy/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](LICENSE)
 [![Join the chat at https://gitter.im/secdev/scapy](https://badges.gitter.im/secdev/scapy.svg)](https://gitter.im/secdev/scapy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 
 Scapy is a powerful Python-based interactive packet manipulation program and
 library.
@@ -29,13 +31,13 @@ handle, like sending invalid frames, injecting your own 802.11 frames, combining
 techniques (VLAN hopping+ARP cache poisoning, VoIP decoding on WEP protected
 channel, ...), etc.
 
-Scapy supports Python 2.7 and Python 3 (3.4 to 3.6). It's intended to
+Scapy supports Python 2.7 and Python 3 (3.4 to 3.7). It's intended to
 be cross platform, and runs on many different platforms (Linux, OSX,
-*BSD, and Windows).
+\*BSD, and Windows).
 
-## Hands-on ##
+## Hands-on
 
-### Interactive shell ###
+### Interactive shell
 
 Scapy can easily be used as an interactive shell to interact with the network.
 The following example shows how to send an ICMP Echo Request message to
@@ -54,31 +56,32 @@ Received 2 packets, got 1 answers, remaining 0 packets
 '192.30.253.113'
 ```
 
-### Python module ###
+### Python module
 
 It is straightforward to use Scapy as a regular Python module, for example to
-check if a TCP port is opened. First, save the following code in a file names
-`send_tcp_syn.py`
+check if a TCP port is opened.
+First, save the following code in a file names e.g. `send_tcp_syn.py`
 
 ```python
 from scapy.all import *
 conf.verb = 0
-
 p = IP(dst="github.com")/TCP()
 r = sr1(p)
 print(r.summary())
 ```
 
 Then, launch the script with:
+
 ```python
 sudo python send_tcp_syn.py
 IP / TCP 192.30.253.113:http > 192.168.46.10:ftp_data SA / Padding
 ```
 
-### Resources ###
+### Resources
 
 To begin with Scapy, you should check [the notebook
-hands-on](doc/notebooks/Scapy%20in%2015%20minutes.ipynb) and the [interactive
+hands-on](https://github.com/secdev/scapy/blob/master/doc/notebooks/Scapy%20in%2015%20minutes.ipynb)
+and the [interactive
 tutorial](http://scapy.readthedocs.io/en/latest/usage.html#interactive-tutorial).
 If you want to learn more, see [the quick demo: an interactive
 session](http://scapy.readthedocs.io/en/latest/introduction.html#quick-demo)
@@ -89,7 +92,7 @@ notebooks.
 The [documentation](http://scapy.readthedocs.io/en/latest/) contains more
 advanced use cases, and examples.
 
-## Installation ##
+## Installation
 
 Scapy works without any external Python modules on Linux and BSD like operating
 systems. On Windows, you need to install some mandatory dependencies as
@@ -97,11 +100,11 @@ described in [the
 documentation](http://scapy.readthedocs.io/en/latest/installation.html#windows).
 
 On most systems, using Scapy is as simple as running the following commands:
-```
+
+```bash
 git clone https://github.com/secdev/scapy
 cd scapy
 ./run_scapy
->>>
 ```
 
 To benefit from all Scapy features, such as plotting, you might want to install
@@ -109,8 +112,9 @@ Python modules, such as `matplotlib` or `cryptography`. See the
 [documentation](http://scapy.readthedocs.io/en/latest/installation.html) and
 follow the instructions to install them.
 
-[//]: # (stop_pypi_description)
-## Contributing ##
+<!-- stop_ppi_description -->
+
+## Contributing
 
 Want to contribute? Great! Please take a few minutes to
 [read this](CONTRIBUTING.md)!

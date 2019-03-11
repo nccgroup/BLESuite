@@ -1,3 +1,4 @@
+#!/bin/bash
 if [ "$TRAVIS_OS_NAME" = "linux" ]
 then
   # Linux
@@ -10,8 +11,7 @@ then
   # pypy
   if python --version 2>&1 | grep -q PyPy
   then
-    # cryptography requires PyPy >= 2.6, Travis CI uses 2.5.0
-    UT_FLAGS+=" -K crypto -K not_pypy"
+    UT_FLAGS+=" -K not_pypy"
   fi
 elif [ "$TRAVIS_OS_NAME" = "osx" ]
 then
@@ -23,6 +23,12 @@ then
   # Some Python 3 tests currently fail. They should be tracked and
   # fixed.
   UT_FLAGS+=" -K FIXME_py3"
+fi
+
+if [[ ${TRAVIS_DIST:=trusty} == xenial ]]
+then
+  # The vcan module is currently unavailable on Travis-CI xenial builds
+  UT_FLAGS+=" -K vcan_socket"
 fi
 
 # Dump Environment (so that we can check PATH, UT_FLAGS, etc.)

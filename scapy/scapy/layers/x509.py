@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # Enhanced by Maxence Tury <maxence.tury@ssi.gouv.fr>
 # This program is published under a GPLv2 license
@@ -8,13 +8,24 @@
 X.509 certificates.
 """
 
-from scapy.asn1.asn1 import *
-from scapy.asn1.ber import *
-from scapy.asn1packet import *
-from scapy.asn1fields import *
+from scapy.asn1.asn1 import ASN1_Codecs, ASN1_OID, \
+    ASN1_IA5_STRING, ASN1_NULL, ASN1_PRINTABLE_STRING, \
+    ASN1_UTC_TIME, ASN1_UTF8_STRING
+from scapy.asn1.ber import BER_tagging_dec, BER_Decoding_Error
+from scapy.asn1packet import ASN1_Packet
+from scapy.asn1fields import ASN1F_BIT_STRING, ASN1F_BIT_STRING_ENCAPS, \
+    ASN1F_BMP_STRING, ASN1F_BOOLEAN, ASN1F_CHOICE, ASN1F_ENUMERATED, \
+    ASN1F_FLAGS, ASN1F_GENERALIZED_TIME, ASN1F_IA5_STRING, ASN1F_INTEGER, \
+    ASN1F_ISO646_STRING, ASN1F_NULL, ASN1F_OID, ASN1F_PACKET, \
+    ASN1F_PRINTABLE_STRING, ASN1F_SEQUENCE, ASN1F_SEQUENCE_OF, ASN1F_SET_OF, \
+    ASN1F_STRING, ASN1F_T61_STRING, ASN1F_UNIVERSAL_STRING, ASN1F_UTC_TIME, \
+    ASN1F_UTF8_STRING, ASN1F_badsequence, ASN1F_enum_INTEGER, ASN1F_field, \
+    ASN1F_optional
 from scapy.packet import Packet
 from scapy.fields import PacketField
-from scapy.volatile import *
+from scapy.volatile import ZuluTime, GeneralizedTime
+from scapy.config import conf
+from scapy.compat import plain_str
 
 
 class ASN1P_OID(ASN1_Packet):
@@ -276,17 +287,17 @@ class X509_GeneralName(ASN1_Packet):
                                           implicit_tag=0x81),
                              ASN1F_PACKET("dNSName", None, X509_DNSName,
                                           implicit_tag=0x82),
-                             ASN1F_PACKET("x400Address", None, X509_X400Address,
+                             ASN1F_PACKET("x400Address", None, X509_X400Address,  # noqa: E501
                                           explicit_tag=0xa3),
-                             ASN1F_PACKET("directoryName", None, X509_DirectoryName,
+                             ASN1F_PACKET("directoryName", None, X509_DirectoryName,  # noqa: E501
                                           explicit_tag=0xa4),
-                             ASN1F_PACKET("ediPartyName", None, X509_EDIPartyName,
+                             ASN1F_PACKET("ediPartyName", None, X509_EDIPartyName,  # noqa: E501
                                           explicit_tag=0xa5),
-                             ASN1F_PACKET("uniformResourceIdentifier", None, X509_URI,
+                             ASN1F_PACKET("uniformResourceIdentifier", None, X509_URI,  # noqa: E501
                                           implicit_tag=0x86),
                              ASN1F_PACKET("ipAddress", None, X509_IPAddress,
                                           implicit_tag=0x87),
-                             ASN1F_PACKET("registeredID", None, X509_RegisteredID,
+                             ASN1F_PACKET("registeredID", None, X509_RegisteredID,  # noqa: E501
                                           implicit_tag=0x88))
 
 
@@ -949,7 +960,7 @@ class X509_TBSCertificate(ASN1_Packet):
         attrsDict = {}
         for attr in attrs:
             # we assume there is only one name in each rdn ASN1_SET
-            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)
+            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)  # noqa: E501
         return attrsDict
 
     def get_issuer_str(self):
@@ -974,7 +985,7 @@ class X509_TBSCertificate(ASN1_Packet):
         attrsDict = {}
         for attr in attrs:
             # we assume there is only one name in each rdn ASN1_SET
-            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)
+            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)  # noqa: E501
         return attrsDict
 
     def get_subject_str(self):
@@ -1035,7 +1046,7 @@ class ASN1F_X509_Cert(ASN1F_SEQUENCE):
         if "signatureAlgorithm" in pkt.fields:
             sigtype = pkt.fields['signatureAlgorithm'].algorithm.oidname
         else:
-            sigtype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname
+            sigtype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname  # noqa: E501
         if "rsa" in sigtype.lower():
             return ASN1F_SEQUENCE.build(self, pkt)
         elif "ecdsa" in sigtype.lower():
@@ -1087,7 +1098,7 @@ class X509_TBSCertList(ASN1_Packet):
         attrsDict = {}
         for attr in attrs:
             # we assume there is only one name in each rdn ASN1_SET
-            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)
+            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)  # noqa: E501
         return attrsDict
 
     def get_issuer_str(self):
@@ -1152,7 +1163,7 @@ class ASN1F_X509_CRL(ASN1F_SEQUENCE):
         if "signatureAlgorithm" in pkt.fields:
             sigtype = pkt.fields['signatureAlgorithm'].algorithm.oidname
         else:
-            sigtype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname
+            sigtype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname  # noqa: E501
         if "rsa" in sigtype.lower():
             return ASN1F_SEQUENCE.build(self, pkt)
         elif "ecdsa" in sigtype.lower():
@@ -1316,7 +1327,7 @@ class ASN1F_OCSP_BasicResponse(ASN1F_SEQUENCE):
         if "signatureAlgorithm" in pkt.fields:
             sigtype = pkt.fields['signatureAlgorithm'].algorithm.oidname
         else:
-            sigtype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname
+            sigtype = pkt.default_fields["signatureAlgorithm"].algorithm.oidname  # noqa: E501
         if "rsa" in sigtype.lower():
             return ASN1F_SEQUENCE.build(self, pkt)
         elif "ecdsa" in sigtype.lower():

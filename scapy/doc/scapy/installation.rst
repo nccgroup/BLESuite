@@ -9,7 +9,7 @@ Overview
 
  0. Install `Python 2.7.X or 3.4+ <https://www.python.org/downloads/>`_.
  1. `Download and install Scapy. <#installing-scapy-v2-x>`_
- 2. `Follow the platform-specific instructions (depedencies) <#platform-specific-instructions>`_.
+ 2. `Follow the platform-specific instructions (dependencies) <#platform-specific-instructions>`_.
  3. (Optional): `Install additional software for special features <#optional-software-for-special-features>`_.
  4. Run Scapy with root privileges.
  
@@ -136,8 +136,10 @@ Here are the topics involved and some examples that you can use to try if your i
      >>> p=readpcap("myfile.pcap")
      >>> p.conversations(type="jpg", target="> test.jpg")
  
-* 3D graphics. ``trace3D()`` needs `VPython <http://www.vpython.org/>`_.
- 
+* 3D graphics. ``trace3D()`` needs `VPython-Jupyter <https://github.com/BruceSherwood/vpython-jupyter/>`_.
+
+    Jupyter-IPython is installable via `pip install vpython`
+
   .. code-block:: python
 
      >>> a,u=traceroute(["www.python.org", "google.com","slashdot.org"])
@@ -173,8 +175,6 @@ Here are the topics involved and some examples that you can use to try if your i
      Received 19 packets, got 4 answers, remaining 4 packets
      (0.88749999999999996, ['Draytek Vigor 2000 ISDN router'])
 
-* Queso is used withing the queso module: `queso-980922.tar.gz <http://www.packetstormsecurity.org/UNIX/scanners/queso-980922.tar.gz>`_. Extract the tar.gz file (e.g. using `7-Zip <http://www.7-zip.org/>`_) and put ``queso.conf`` into your Scapy directory
-
 .. index::
    single: VOIP
  
@@ -198,7 +198,7 @@ Debian/Ubuntu
 
 Just use the standard packages::
 
-$ sudo apt-get install tcpdump graphviz imagemagick python-gnuplot python-cryptography python-pyx
+$ sudo apt-get install tcpdump graphviz imagemagick python-matplotlib python-cryptography python-pyx
 
 Scapy optionally uses python-cryptography v1.7 or later. It has not been packaged for ``apt`` in less recent OS versions (e.g. Debian Jessie). If you need the cryptography-related methods, you may install the library with:
 
@@ -223,12 +223,7 @@ Some optional packages:
 
 .. code-block:: text
 
-    # yum install graphviz python-cryptography sox PyX gnuplot numpy
-    # cd /tmp
-    # wget http://heanet.dl.sourceforge.net/sourceforge/gnuplot-py/gnuplot-py-1.8.tar.gz
-    # tar xvfz gnuplot-py-1.8.tar.gz
-    # cd gnuplot-py-1.8
-    # python setup.py install
+    # yum install graphviz python-cryptography sox PyX matplotlib numpy
 
 
 Mac OS X
@@ -285,17 +280,19 @@ Here's how to install Scapy on OpenBSD 5.9+
 Optional packages (OpenBSD only)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+It is recommended to install those packages through `pip` rather than the OS, as the versions tend to be more up-to-date.
+
 py-cryptography
 
 .. code-block:: text
 
  # pkg_add py-cryptography
 
-gnuplot and its Python binding: 
+matplotlib: 
 
 .. code-block:: text
 
- # pkg_add gnuplot py-gnuplot
+ # pkg_add matplotlib
 
 Graphviz (large download, will install several GNOME libraries)
 
@@ -352,7 +349,7 @@ Scapy is primarily being developed for Unix-like systems and works best on those
 You need the following software packages in order to install Scapy on Windows:
 
   * `Python <http://www.python.org>`_: `Python 2.7.X or 3.4+ <https://www.python.org/downloads/>`_. After installation, add the Python installation directory and its \Scripts subdirectory to your PATH. Depending on your Python version, the defaults would be ``C:\Python27`` and ``C:\Python27\Scripts`` respectively.
-  * `Npcap <https://nmap.org/npcap/>`_: `the latest version <https://nmap.org/npcap/#download>`_. Default values are recommanded. Scapy will also work with Winpcap.
+  * `Npcap <https://nmap.org/npcap/>`_: `the latest version <https://nmap.org/npcap/#download>`_. Default values are recommended. Scapy will also work with Winpcap.
   * `Scapy <http://www.secdev.org/projects/scapy/>`_: `latest development version <https://github.com/secdev/scapy/archive/master.zip>`_ from the `Git repository <https://github.com/secdev/scapy>`_. Unzip the archive, open a command prompt in that directory and run "python setup.py install". 
 
 Just download the files and run the setup program. Choosing the default installation options should be safe.

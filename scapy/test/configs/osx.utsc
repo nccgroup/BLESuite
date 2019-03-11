@@ -5,9 +5,9 @@
   ],
   "remove_testfiles": [
     "test/linux.uts",
-    "test/mock_windows.uts",
-    "test/cansocket_native.uts",
-    "test/cansocket_python_can.uts"
+    "test/windows.uts",
+    "scapy/contrib/cansocket_native.uts",
+    "scapy/contrib/cansocket_python_can.uts"
   ],
   "onlyfailed": true,
   "preexec": {
@@ -19,6 +19,7 @@
   "format": "text",
   "kw_ko": [
     "linux",
+    "windows",
     "crypto_advanced",
     "ipv6"
   ]
