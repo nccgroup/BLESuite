@@ -248,7 +248,7 @@ class Server:
         self.services = gatt_service_list
 
     def manual_set_attribute_db(self, attribute_dictionary):
-        self.db.anually_set_attribute_db_dict(attribute_dictionary)
+        self.db.manually_set_attribute_db_dict(attribute_dictionary)
 
     def debug_print_db(self):
         self.db.debug_print_db()
@@ -1346,9 +1346,9 @@ class AttributeDatabase:
         print "=================="
         for key in self.attributes.keys():
             att = self.attributes[key]
-            print str(key) + "\t " + str(att.uuid.uuid) + str(att.uuid.packed)
+            print str(key) + "\t " + str(att.uuid.uuid) + str(att.uuid.packed).encode('hex')
             print "\t " + "properties: " + hex(att.properties)
             print "\t " + "read security mode: ", att.sec_mode_read.security_mode, " level: ", att.sec_mode_read.security_level
             print "\t " + "write security mode: ", att.sec_mode_write.security_mode, " level: ", att.sec_mode_write.security_level
             print "\t " + "authz required: ", att.require_authorization
-            print "\t " + "value: ", att.value, "hex encoded", att.value.encode('hex')
+            print "\t " + "value: ", repr(att.value), "hex encoded: ", str(att.value).encode('hex')

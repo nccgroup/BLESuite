@@ -15,7 +15,7 @@ security_level = 3
 
 with BLEConnectionManager(adapter, role) as connection_manager:
     # Add new LTK to the Security Manager from previously established encryption keys
-    connection_manager.add_key_to_security_manger_long_term_key_database(address_bytes, peer_address_type,
-                                                                         ltk, ediv, rand, irk, csrk,
-                                                                         security_mode, security_level)
-    print connection_manager.get_security_manger_long_term_key_database().long_term_keys
+    connection_manager.add_key_to_security_manager_long_term_key_database(address_bytes, peer_address_type,
+                                                                          ltk, ediv, rand, irk, csrk,
+                                                                          security_mode, security_level)
+    print connection_manager.get_security_manager_long_term_key_database().long_term_keys
