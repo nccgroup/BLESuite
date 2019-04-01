@@ -1346,7 +1346,7 @@ class AttributeDatabase:
         print "=================="
         for key in self.attributes.keys():
             att = self.attributes[key]
-            print str(key) + "\t " + str(att.uuid.uuid) + str(att.uuid.packed).encode('hex')
+            print "{}\t{} (0x{})".format(str(key), att.uuid.uuid, str(att.uuid.packed).encode('hex'))
             print "\t " + "properties: " + hex(att.properties)
             print "\t " + "read security mode: ", att.sec_mode_read.security_mode, " level: ", att.sec_mode_read.security_level
             print "\t " + "write security mode: ", att.sec_mode_write.security_mode, " level: ", att.sec_mode_write.security_level
