@@ -635,7 +635,7 @@ class BLECharacteristic(object):
         return descriptor
 
     def add_descriptor_with_data(self, handle, uuid, data,
-                                 characteristic_descriptor_attribute_properties=att_utils.ATT_PROP_READ,
+                                 characteristic_descriptor_attribute_properties=att_utils.ATT_PROP_READ|att_utils.ATT_PROP_WRITE,
                                  characteristic_descriptor_attribute_read_permission=att_utils.ATT_SECURITY_MODE_OPEN,
                                  characteristic_descriptor_attribute_write_permission=att_utils.ATT_SECURITY_MODE_NO_ACCESS,
                                  characteristic_descriptor_attribute_require_authorization=False):
