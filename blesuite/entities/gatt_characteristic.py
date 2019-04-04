@@ -634,7 +634,11 @@ class BLECharacteristic(object):
         self.descriptors.append(descriptor)
         return descriptor
 
-    def add_descriptor_with_data(self, handle, uuid, data):
+    def add_descriptor_with_data(self, handle, uuid, data,
+                                 characteristic_descriptor_attribute_properties=att_utils.ATT_PROP_READ,
+                                 characteristic_descriptor_attribute_read_permission=att_utils.ATT_SECURITY_MODE_OPEN,
+                                 characteristic_descriptor_attribute_write_permission=att_utils.ATT_SECURITY_MODE_NO_ACCESS,
+                                 characteristic_descriptor_attribute_require_authorization=False):
         """
         Create a descriptor object, set the object's lastReadValue, and
         add it to the descriptors list.
@@ -642,13 +646,25 @@ class BLECharacteristic(object):
         :param handle: Handle of descriptor
         :param uuid: UUID of descriptor
         :param data: Data received after reading from descriptor handle
+        :param characteristic_descriptor_attribute_properties: Attribute properties (default blesuite.utils.att_utils.ATT_PROP_READ)
+        :param characteristic_descriptor_attribute_read_permission: Required security mode to read attribute (default blesuite.utils.att_utils.ATT_SECURITY_MODE_OPEN)
+        :param characteristic_descriptor_attribute_write_permission: Required security mode to write to attribute (default blesuite.utils.att_utils.ATT_SECURITY_MODE_NO_ACCESS)
+        :param characteristic_descriptor_attribute_require_authorization: Flag to indicate that access of the attribute requires authorization (default False)
         :type handle: int - base 10
         :type uuid: str
         :type data: list of strings
+        :type characteristic_descriptor_attribute_properties: blesuite.utils.att_utils.ATT_PROP_*
+        :type characteristic_descriptor_attribute_read_permission: blesuite.utils.att_utils.ATT_SECURITY_MODE_*
+        :type characteristic_descriptor_attribute_write_permission: blesuite.utils.att_utils.ATT_SECURITY_MODE_*
+        :type characteristic_descriptor_attribute_require_authorization: bool
         :return: Descriptor
         :rtype: blesuite.entities.gatt_descriptor
         """
-        descriptor = BLEDescriptor(handle, uuid, data)
+        descriptor = BLEDescriptor(handle, uuid, data,
+                                   characteristic_descriptor_attribute_properties,
+                                   characteristic_descriptor_attribute_read_permission,
+                                   characteristic_descriptor_attribute_write_permission,
+                                   characteristic_descriptor_attribute_require_authorization)
         if self.value_handle == handle:
             descriptor.type_string = "Characteristic Value Declaration"
         self.descriptors.append(descriptor)
