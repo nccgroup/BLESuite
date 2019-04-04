@@ -55,6 +55,13 @@ class BLEConnection(object):
         self.interval_max = None
         self.mtu = 23  # default as per spec
 
+    def __repr__(self):
+        return '<{} address={}, type={}>'.format(
+            self.__class__.__name__,
+            self.address,
+            {0: "random", 1: "public"}.get(self.address_type, "Unknown")
+        )
+
 
 class BLEConnectionManager(object):
     """
