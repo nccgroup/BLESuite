@@ -81,7 +81,7 @@ class LongTermKeyDatabase:
 
     def get_entry_for_address(self, address):
         for entry in self.long_term_keys:
-            if entry["address"] == address.replace(":",""):
+            if entry["address"] == address.replace(":", ""):
                 return entry
         return None
 
@@ -821,21 +821,21 @@ class SecurityManagerProtocol:
             sm.rAddr = addr
             sm.rAType = addr_type
             self.security_managers[addr] = sm
-        sm.set_security_mode_level(security_mode)
-        sm.set_security_mode_level(security_level)
+            sm.set_security_mode_level(security_mode)
+            sm.set_security_mode_level(security_level)
         self.long_term_key_db.add_long_term_key_entry(addr, addr_type, ltk, ediv,
                                                       rand, None, None, security_mode, security_level)
         log.debug("Initiating encryption with provided keys: Connection Handle=%s, LTK=%s, EDIV=%s, Random=%s"
-                  % (conn_handle, ltk, ediv, random))
+                  % (conn_handle, ltk, ediv, rand))
 
-        self.stack.set_encryption(conn_handle, random, ediv, ltk)
+        self.stack.set_encryption(conn_handle, rand, ediv, ltk)
 
     def has_encryption_ltk_for_address(self, peer_address):
         return ((peer_address.lower() in self.security_managers.keys()) and
                 self.security_managers[peer_address].rLtk is not None)
 
     def send_ltk(self, connection_handle, rand, ediv, peer_address):
-        # TODO This needs to be updates to support Secure COnnections where encryption only requires LTK and not
+        # TODO This needs to be updates to support Secure Connections where encryption only requires LTK and not
         # EDIV and RAND
         peer_address = peer_address.lower()
         rand = rand[::-1]
