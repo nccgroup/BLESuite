@@ -842,7 +842,7 @@ class SecurityManagerProtocol:
         log.debug("Send LTK invoked for address: %s ediv: %s rand: %s" % (peer_address, hex(ediv),
                                                                           rand.encode('hex')))
         sm = self.security_managers[peer_address]
-        if self.long_term_key_db.is_ltk_in_db(peer_address, ediv, rand):
+        if self.long_term_key_db.get_ltk_from_ediv_and_rand(ediv, rand):
             log.debug("LTK found in LongTermKeyDatabase")
             ltk = self.long_term_key_db.get_ltk_from_ediv_and_rand(ediv, rand)
 
