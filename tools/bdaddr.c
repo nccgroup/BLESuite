@@ -363,7 +363,7 @@ static PyObject *bdaddr_bdaddr(PyObject  *self, PyObject *args)
 	struct hci_version ver;
 	bdaddr_t bdaddr;
 	char addr[18], *comp;
-	int i, dd, opt, dev = 0, reset = 0;
+	int i, dd, opt, dev = 0, reset = 1;
 
 	bacpy(&bdaddr, BDADDR_ANY);
 

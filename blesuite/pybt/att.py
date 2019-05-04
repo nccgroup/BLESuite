@@ -194,9 +194,9 @@ class AttributeProtocol:
             # self.send(p, conn_handle)
         elif opcode == ATT_PDU_OPCODE_BY_NAME['Read Blob Request']:
             log.debug("Received read blob request for handle: %d with offset %d" % (
-                req_pkt.gatt_handle, req_pkt.value_offset
+                req_pkt.gatt_handle, req_pkt.offset
             ))
-            success, body = self.gatt_server.read_blob(req_pkt.gatt_handle, req_pkt.value_offset, connection_permission,
+            success, body = self.gatt_server.read_blob(req_pkt.gatt_handle, req_pkt.offset, connection_permission,
                                                        is_connection_encrypted)
             if success:
                 p = ATT_Read_Blob_Response(body)

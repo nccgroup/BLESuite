@@ -2,6 +2,8 @@ from fcntl import ioctl
 import logging
 import socket as s
 from scapy.layers.bluetooth import *
+import ctypes
+import struct
 import os
 import sys
 
@@ -12,24 +14,108 @@ PUBLIC_DEVICE_ADDRESS = 0x00
 RANDOM_DEVICE_ADDRESS = 0x01
 
 
+class hci_dev_stat(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ('err_rx', ctypes.c_uint32),
+        ('err_tx', ctypes.c_uint32),
+        ('cmd_tx', ctypes.c_uint32),
+        ('evt_rx', ctypes.c_uint32),
+        ('acl_tx', ctypes.c_uint32),
+        ('acl_rx', ctypes.c_uint32),
+        ('sco_tx', ctypes.c_uint32),
+        ('sco_rx', ctypes.c_uint32),
+        ('byte_rx', ctypes.c_uint32),
+        ('byte_tx', ctypes.c_uint32),
+    ]
+
+
+class hci_dev_info(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ('dev_id', ctypes.c_uint16),
+        ('name', ctypes.c_char * 8),
+        ('bdaddr', ctypes.c_ubyte * 6),
+        ('flags', ctypes.c_uint32),
+        ('type', ctypes.c_ubyte),
+        ('features', ctypes.c_ubyte * 8),
+        ('pkt_type', ctypes.c_uint32),
+        ('link_policy', ctypes.c_uint32),
+        ('link_mode', ctypes.c_uint32),
+        ('acl_mtu', ctypes.c_uint16),
+        ('acl_pkts', ctypes.c_uint16),
+        ('sco_mtu', ctypes.c_uint16),
+        ('sco_pkts', ctypes.c_uint16),
+        ('stat', hci_dev_stat),
+    ]
+
+
 class HCIConfig(object):
+    PF_BLUETOOTH = 31
+
+    BTPROTO_HCI = 1
+
+    # IOCTL
+    HCIDEVUP = 0x400448c9
+    HCIDEVDOWN = 0x400448ca
+    HCIDEVRESET = 0x400448cb
+    HCIGETDEVINFO = 0x800448d3
+
     @staticmethod
     def down(iface):
-        # 31 => PF_BLUETOOTH
-        # 0 => HCI_CHANNEL_USER
-        # 0x400448ca => HCIDEVDOWN
-        sock = s.socket(31, s.SOCK_RAW, 1)
-        ioctl(sock.fileno(), 0x400448ca, iface)
+        sock = s.socket(
+            HCIConfig.PF_BLUETOOTH,
+            s.SOCK_RAW,
+            HCIConfig.BTPROTO_HCI)
+        ioctl(sock.fileno(), HCIConfig.HCIDEVDOWN, iface)
         sock.close()
         return True
 
     @staticmethod
     def up(iface):
-        sock = s.socket(31, s.SOCK_RAW, iface)
-        # TODO
-        # ioctl(sock.fileno(), HCIDEVUP, 0)
+        sock = s.socket(
+            HCIConfig.PF_BLUETOOTH,
+            s.SOCK_RAW,
+            HCIConfig.BTPROTO_HCI)
+        ioctl(sock.fileno(), HCIConfig.HCIDEVUP, iface)
         sock.close()
         return False
+
+    @staticmethod
+    def reset(iface):
+        sock = s.socket(
+            HCIConfig.PF_BLUETOOTH,
+            s.SOCK_RAW,
+            HCIConfig.BTPROTO_HCI)
+        ioctl(sock.fileno(), HCIConfig.HCIDEVRESET, iface)
+        ioctl(sock.fileno(), HCIConfig.HCIDEVDOWN, iface)
+        ioctl(sock.fileno(), HCIConfig.HCIDEVUP, iface)
+        sock.close()
+        return True
+
+    @staticmethod
+    def get_devinfo(iface):
+        di = hci_dev_info(dev_id=iface)
+        sock = s.socket(
+            HCIConfig.PF_BLUETOOTH,
+            s.SOCK_RAW,
+            HCIConfig.BTPROTO_HCI)
+        try:
+            rv = ioctl(sock.fileno(), HCIConfig.HCIGETDEVINFO, di, True)
+        except IOError:
+            rv = None
+        finally:
+            sock.close()
+        if rv:
+            return None
+        return di
+
+    @staticmethod
+    def get_bdaddr(iface):
+        di = HCIConfig.get_devinfo(iface)
+        if not di:
+            return None
+        return ':'.join(["%02X" % b for b in di.bdaddr[::-1]])
 
 
 class BTStack:
@@ -214,7 +300,7 @@ class BTStack:
                     meta = p[HCI_LE_Meta_Connection_Complete]
                     return BTEvent(BTEvent.CONNECTED, (p.status, p.handle, meta, p.paddr, p.patype))
                 if p.event == 2:
-                    return BTEvent(BTEvent.SCAN_DATA, (p.addr, p.atype, p.data))
+                    return BTEvent(BTEvent.SCAN_DATA, (p.reports[0].addr, p.reports[0].atype, p.reports[0].data))
                 # LE Read Remote Used Features Complete
                 if p.event == 4:
                     meta = p[HCI_LE_Meta_Connection_Complete]

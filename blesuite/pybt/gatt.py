@@ -248,7 +248,7 @@ class Server:
         self.services = gatt_service_list
 
     def manual_set_attribute_db(self, attribute_dictionary):
-        self.db.anually_set_attribute_db_dict(attribute_dictionary)
+        self.db.manually_set_attribute_db_dict(attribute_dictionary)
 
     def debug_print_db(self):
         self.db.debug_print_db()
@@ -627,7 +627,7 @@ class UUID:
                 self.packed = pack('<h', uuid)
                 self.type = UUID.TYPE_16
             elif 0 <= uuid <= 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:
-                self.uuid = '%32X' % uuid
+                self.uuid = '%032X' % uuid
                 # modified solution from http://www.codegur.site/6877096/how-to-pack-a-uuid-into-a-struct-in-python
                 self.packed = pack('<QQ', uuid & 0xFFFFFFFFFFFFFFFF, (uuid >> 64) & 0xFFFFFFFFFFFFFFFF)
                 self.type = UUID.TYPE_128
@@ -637,7 +637,7 @@ class UUID:
             self.packed = uuid.decode("hex")[::-1]
             self.type = UUID.TYPE_16
         elif len(uuid) == 36:
-            temp = uuid.translate(None, '-')
+            temp = uuid.translate(None, "-")
 
             if len(temp) == 32:
                 self.uuid = uuid
@@ -659,7 +659,7 @@ class UUID:
             self.type = UUID.TYPE_128
 
         if self.uuid is None:
-            raise InvalidUUIDException()
+            raise InvalidUUIDException(uuid)
 
     def __eq__(self, other):
         # TODO expand 16 bit UUIDs
@@ -1346,9 +1346,9 @@ class AttributeDatabase:
         print "=================="
         for key in self.attributes.keys():
             att = self.attributes[key]
-            print str(key) + "\t " + str(att.uuid.uuid) + str(att.uuid.packed)
+            print "{}\t{} (0x{})".format(str(key), att.uuid.uuid, str(att.uuid.packed).encode('hex'))
             print "\t " + "properties: " + hex(att.properties)
             print "\t " + "read security mode: ", att.sec_mode_read.security_mode, " level: ", att.sec_mode_read.security_level
             print "\t " + "write security mode: ", att.sec_mode_write.security_mode, " level: ", att.sec_mode_write.security_level
             print "\t " + "authz required: ", att.require_authorization
-            print "\t " + "value: ", att.value, "hex encoded", att.value.encode('hex')
+            print "\t " + "value: ", repr(att.value), "hex encoded: ", str(att.value).encode('hex')

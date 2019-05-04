@@ -490,7 +490,7 @@ def gatt_procedure_discover_primary_services(connection_manager, connection, dev
             start = struct.unpack("<h", service_data[:2])[0]
             end = struct.unpack("<h", service_data[2:4])[0]
             uuid_128 = struct.unpack("<QQ", service_data[4:])
-            uuid_128 = hex(uuid_128[1])[2:].replace('L', '')+hex(uuid_128[0])[2:].replace('L', '')
+            uuid_128 = "%016x%016x" % (uuid_128[1], uuid_128[0])
             # print "UUID128:", uuid_128
             uuid_128 = '-'.join((uuid_128[:8], uuid_128[8:12], uuid_128[12:16], uuid_128[16:20], uuid_128[20:]))
             if end == -1:
@@ -580,7 +580,7 @@ def gatt_procedure_discover_secondary_services(connection_manager, connection, d
             start = struct.unpack("<h", service_data[:2])[0]
             end = struct.unpack("<h", service_data[2:4])[0]
             uuid_128 = struct.unpack("<QQ", service_data[4:])
-            uuid_128 = hex(uuid_128[1])[2:].replace('L', '')+hex(uuid_128[0])[2:].replace('L', '')
+            uuid_128 = "%016x%016x" % (uuid_128[1], uuid_128[0])
             # print "UUID128:", uuid_128
             uuid_128 = '-'.join((uuid_128[:8], uuid_128[8:12], uuid_128[12:16], uuid_128[16:20], uuid_128[20:]))
             if end == -1:
@@ -675,7 +675,7 @@ def gatt_procedure_discover_characteristics(connection_manager, connection, devi
             perm = struct.unpack("<B", characteristic_data[2:3])[0]
             value_handle = struct.unpack("<h", characteristic_data[3:5])[0]
             uuid_128 = struct.unpack("<QQ", characteristic_data[5:])
-            uuid_128 = hex(uuid_128[1])[2:].replace('L', '')+hex(uuid_128[0])[2:].replace('L', '')
+            uuid_128 = "%016x%016x" % (uuid_128[1], uuid_128[0])
             # print "UUID128:", uuid_128
             uuid_128 = '-'.join((uuid_128[:8], uuid_128[8:12], uuid_128[12:16], uuid_128[16:20], uuid_128[20:]))
             if handle == -1:
@@ -847,7 +847,7 @@ def gatt_procedure_discover_descriptors(connection_manager, connection, device):
             elif uuid_format == 2:  # 128-bit uuid
                 handle = struct.unpack("<h", data[:2])[0]
                 uuid_128 = struct.unpack("<QQ", data[2:])
-                uuid_128 = hex(uuid_128[1])[2:].replace('L', '') + hex(uuid_128[0])[2:].replace('L', '')
+                uuid_128 = "%016x%016x" % (uuid_128[1], uuid_128[0])
                 uuid_128 = '-'.join((uuid_128[:8], uuid_128[8:12], uuid_128[12:16], uuid_128[16:20], uuid_128[20:]))
 
                 characteristic.add_descriptor_with_data(handle, uuid_128, None)

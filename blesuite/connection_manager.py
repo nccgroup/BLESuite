@@ -55,6 +55,13 @@ class BLEConnection(object):
         self.interval_max = None
         self.mtu = 23  # default as per spec
 
+    def __repr__(self):
+        return '<{} address={}, type={}>'.format(
+            self.__class__.__name__,
+            self.address,
+            {0: "random", 1: "public"}.get(self.address_type, "Unknown")
+        )
+
 
 class BLEConnectionManager(object):
     """
@@ -441,7 +448,7 @@ class BLEConnectionManager(object):
 
         return result
 
-    def get_security_manger_long_term_key_database(self):
+    def get_security_manager_long_term_key_database(self):
         """
         Retrieve the LongTermKeyDatabase from the Security Manager
         
@@ -450,7 +457,7 @@ class BLEConnectionManager(object):
         """
         return self.role.smp.long_term_key_db
 
-    def add_key_to_security_manger_long_term_key_database(self, address, address_type, ltk, ediv, rand, irk, csrk, security_mode,
+    def add_key_to_security_manager_long_term_key_database(self, address, address_type, ltk, ediv, rand, irk, csrk, security_mode,
                                                           security_level):
         """
         Add an entry to the LongTermKeyDatabase that will be used for encryption key lookups when encryption
