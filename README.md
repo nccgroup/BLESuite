@@ -67,7 +67,7 @@ Recent attempts to use BLESuite with Fedora 28 were achieved by installing the
 following items:
 
 * dnf install bluez-libs-devel python2-devel python2-sphinx python2-gevent
-* follow the rest of the installtion instructions to install the supplied version
+* follow the rest of the installation instructions to install the supplied version
   of Scapy and BLESuite
 
 With Fedora 28, there has been one non-repeatable reported issue with BLESuite 
