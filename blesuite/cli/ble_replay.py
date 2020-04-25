@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import blesuite.replay.hci_parser as hci_parser
 import argparse
 import blesuite.replay.util
@@ -65,7 +67,7 @@ def main():
         elif args.parse_pcap:
             logparser.load_file(args.parse_pcap, pcap_format=True)
         else:
-            print "You must specify an input option (-if, -p, -f)"
+            print("You must specify an input option (-if, -p, -f)")
             return
         replay_data = logparser.parse_att_writes()
         if args.outfile:
@@ -73,7 +75,7 @@ def main():
 
     if args.replay:
         if not (args.iface and args.address):
-            print "You must specify an interface and device address"
+            print("You must specify an interface and device address")
             return
         blesuite.replay.util.gatt_writes(int(args.iface), args.address, args.address_type, replay_data,
                                          int(args.mtu), wait=args.wait)
@@ -81,7 +83,7 @@ def main():
     elif args.outfile:
         return
     else:
-        print "You must specify an output option (-r, -of)"
+        print("You must specify an output option (-r, -of)")
         return
 
 

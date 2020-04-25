@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from blesuite.connection_manager import BLEConnectionManager
 import json
 
@@ -39,20 +41,20 @@ with BLEConnectionManager(adapter, role) as connection_manager:
     result = connection_manager.pair(connection, pairing_timeout_seconds)
 
     if result:
-        print "Pairing successful!"
+        print("Pairing successful!")
         # export keys for later use
         ltk_db = connection_manager.export_security_manager_long_term_key_database_for_storage()
 
         for ltk_entry in ltk_db:
-            print "Address: %s addr_type: %d LTK: %s Ediv: %s Rand: %s IRK: %s CSRK: %s security mode: %s security level: %s" % (
+            print("Address: %s addr_type: %d LTK: %s Ediv: %s Rand: %s IRK: %s CSRK: %s security mode: %s security level: %s" % (
                 ltk_entry['address'], ltk_entry['address_type'], ltk_entry['ltk'], ltk_entry['ediv'], ltk_entry['rand'],
                 ltk_entry['irk'],
                 ltk_entry['csrk'], ltk_entry['security_mode'], ltk_entry['security_level']
-            )
+            ))
         # Write JSON to file
         ltk_json_output = json.dumps(ltk_db, indent=4)
         f = open("long_term_key_database_after_pairing.json", "w")
         f.write(ltk_json_output)
         f.close()
     else:
-        print "Something went wrong during pairing"
+        print("Something went wrong during pairing")

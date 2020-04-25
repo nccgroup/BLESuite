@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from blesuite.connection_manager import BLEConnectionManager
 import blesuite.utils.gap_utils as gap_utils
 import bdaddr
@@ -51,8 +53,8 @@ with BLEConnectionManager(adapter, 'central') as connection_manager:
         for device in readable_discovered_devices.keys():
             if ('Complete Local Name' in readable_discovered_devices[device].keys() and
                readable_discovered_devices[device]['Complete Local Name'] == target_device_name):
-                print "Found BLEBoy at address: %s with type: %s" % (device,
-                                                                     readable_discovered_devices[device]['address_type'])
+                print("Found BLEBoy at address: %s with type: %s" % (device,
+                                                                     readable_discovered_devices[device]['address_type']))
                 device_found = True
                 target_address = device
                 target_address_type = readable_discovered_devices[device]['address_type']
@@ -66,12 +68,12 @@ with BLEConnectionManager(adapter, 'central') as connection_manager:
     # Timeout reached our device found, stop scanning
     connection_manager.stop_scan()
     if device_found:
-        print "Smart scanning device for clone"
+        print("Smart scanning device for clone")
         connection = connection_manager.init_connection(target_address, target_address_type)
         connection_manager.connect(connection)
         target_device_bledevice = connection_manager.smart_scan(connection)
         successful_scan = True
-        print "Done smart scanning"
+        print("Done smart scanning")
 
 if successful_scan:
 
@@ -82,7 +84,7 @@ if successful_scan:
         if ret == -1:
             raise ValueError('Spoofing failed. Your device may not be supported.')
         else:
-            print "Address spoofed"
+            print("Address spoofed")
 
         # Using distinguishable name for demonstration purposes
         local_name = "BLEBoy-Clone"
@@ -129,7 +131,7 @@ if successful_scan:
 
         connection_manager.start_advertising()
 
-        print "Advertising Started"
+        print("Advertising Started")
 
         timeout_seconds = 15
         start = time.time()
@@ -142,4 +144,4 @@ if successful_scan:
         connection_manager.stop_advertising()
 
 else:
-    print "Scan unsuccessful, cloning failed."
+    print("Scan unsuccessful, cloning failed.")

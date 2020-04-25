@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import tempfile
 import ConfigParser
@@ -29,7 +31,7 @@ class SnoopPhone(Phone):
 
         ret = super(SnoopPhone, self).pull(btsnoop_path, dst)
         if ret[0] == 0:
-            print ret[1] + " " + dst 
+            print(ret[1] + " " + dst)
             return dst
         else:
             return None

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from blesuite.replay.btsnoop.android.snoopphone import SnoopPhone
 import binascii
 import util
@@ -31,15 +33,15 @@ class ATTWriteParser:
         try:
             self.snoop_file = phone.pull_btsnoop(output_filename)
         except ValueError:
-            print "connect an Android device..."
+            print("connect an Android device...")
             raise
         except Exception as e:
-            print e.message
+            print(e.message)
 
     def load_file(self, input_filename=None, pcap_format=False):
         """Load a btsnoop file from disk"""
         if input_filename:
-            print "loading file"
+            print("loading file")
             if not pcap_format:
                 self.snoop_file = input_filename
             else:
@@ -57,8 +59,8 @@ class ATTWriteParser:
             try:
                 records = bts.parse(self.snoop_file)
             except Exception as e:
-                print "Error: "
-                print e.message
+                print("Error: ")
+                print(e.message)
                 return None
         elif self.pcap_file is not None:
             py_cap = pyshark.FileCapture(self.pcap_file)
@@ -106,7 +108,7 @@ class ATTWriteParser:
                                 # maybe I'm just not calling pyshark correctly for the info...
                                 self.att_writes.append([seq, datetime.datetime.now(), handle, data])
                             except Exception as p:
-                                print "Error:", p
+                                print("Error:", p)
                 except Exception as e:
                     continue
 
@@ -124,7 +126,7 @@ class ATTWriteParser:
         try:
             from prettytable import PrettyTable
         except:
-            print "prettytable required for this feature"
+            print("prettytable required for this feature")
             return
 
         table = PrettyTable(['No.', 'Time', 'Handle', 'Data'])
@@ -136,4 +138,4 @@ class ATTWriteParser:
             time = r[1].strftime("%b-%d %H:%M:%S.%f")
             table.add_row([r[0], time, r[2], data])
 
-        print table
+        print(table)

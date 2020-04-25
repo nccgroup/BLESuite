@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from blesuite.connection_manager import BLEConnectionManager
 from blesuite.entities.gatt_device import BLEDevice
 from blesuite.entities.permissions import Permissions
@@ -41,7 +43,7 @@ with BLEConnectionManager(adapter, role) as connection_manager:
     result, ble_connection = connection_manager.advertise_and_wait_for_connection()
 
     if result:
-        print "We are connected!"
+        print("We are connected!")
 
         # After peer connects, quickly scan their gatt server and see what info is there
         ble_device = connection_manager.smart_scan(ble_connection, look_for_device_info=False, timeout=5)
@@ -53,6 +55,6 @@ with BLEConnectionManager(adapter, role) as connection_manager:
         read_request = connection_manager.gatt_read_handle(ble_connection, 0x0a)
 
         if read_request.has_error():
-            print "Got error:", read_request.get_error_message()
+            print("Got error:", read_request.get_error_message())
         elif read_request.has_response():
-            print "Got response:", read_request.response.data, "from handle", hex(read_request.handle)
+            print("Got response:", read_request.response.data, "from handle", hex(read_request.handle))

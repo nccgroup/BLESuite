@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from blesuite.connection_manager import BLEConnectionManager
 from blesuite.event_handler import ATTEventHook
 from blesuite.entities.gatt_device import BLEDevice
@@ -19,11 +21,11 @@ class MyCustomATTEventHandler(ATTEventHook):
         write_value_to_attribute = True
         log.debug("ATT write hook triggered. Write value to attribute: %s value: %s" % (hex(gatt_handle), data))
 
-        print "Received value:", data
+        print("Received value:", data)
         # replace data peer is attempting to write with string below
         data = "Intercepted write value"
 
-        print "New write value is:", data
+        print("New write value is:", data)
 
         return (write_value_to_attribute, gatt_handle, data)
     # Only enable one of these hooks at a time, otherwise the functionality will clash and prevent you from

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from blesuite.connection_manager import BLEConnectionManager
 
 adapter = 0
@@ -14,6 +16,6 @@ with BLEConnectionManager(adapter, role) as connection_manager:
     success = connection_manager.connect(connection)
 
     if not success:
-        print "Failed to connected to target device"
+        print("Failed to connected to target device")
     else:
-        print "Connected!"
+        print("Connected!")

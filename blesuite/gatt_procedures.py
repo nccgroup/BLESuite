@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from blesuite.entities.gatt_device import BLEDevice
 import logging
 
@@ -464,7 +466,7 @@ def gatt_procedure_discover_primary_services(connection_manager, connection, dev
             while i < len(service_data):
                 services.append(service_data[i:i+6])
                 i += 6
-            # print "Services:", services
+            # print("Services:", services)
             for service in services:
                 start = struct.unpack("<h", service[:2])[0]
                 end = struct.unpack("<h", service[2:4])[0]
@@ -491,7 +493,7 @@ def gatt_procedure_discover_primary_services(connection_manager, connection, dev
             end = struct.unpack("<h", service_data[2:4])[0]
             uuid_128 = struct.unpack("<QQ", service_data[4:])
             uuid_128 = "%016x%016x" % (uuid_128[1], uuid_128[0])
-            # print "UUID128:", uuid_128
+            # print("UUID128:", uuid_128)
             uuid_128 = '-'.join((uuid_128[:8], uuid_128[8:12], uuid_128[12:16], uuid_128[16:20], uuid_128[20:]))
             if end == -1:
                 end = 0xffff
@@ -554,7 +556,7 @@ def gatt_procedure_discover_secondary_services(connection_manager, connection, d
             while i < len(service_data):
                 services.append(service_data[i:i+6])
                 i += 6
-            # print "Services:", services
+            # print("Services:", services)
             for service in services:
                 start = struct.unpack("<h", service[:2])[0]
                 end = struct.unpack("<h", service[2:4])[0]
@@ -581,7 +583,7 @@ def gatt_procedure_discover_secondary_services(connection_manager, connection, d
             end = struct.unpack("<h", service_data[2:4])[0]
             uuid_128 = struct.unpack("<QQ", service_data[4:])
             uuid_128 = "%016x%016x" % (uuid_128[1], uuid_128[0])
-            # print "UUID128:", uuid_128
+            # print("UUID128:", uuid_128)
             uuid_128 = '-'.join((uuid_128[:8], uuid_128[8:12], uuid_128[12:16], uuid_128[16:20], uuid_128[20:]))
             if end == -1:
                 end = 0xffff
@@ -646,12 +648,12 @@ def gatt_procedure_discover_characteristics(connection_manager, connection, devi
             while i < len(characteristic_data):
                 characteristics.append(characteristic_data[i:i+7])
                 i += 7
-            # print "Services:", services
+            # print("Services:", services)
             for characteristic in characteristics:
                 handle = struct.unpack("<h", characteristic[:2])[0]
                 perm = struct.unpack("<B", characteristic[2:3])[0]
                 value_handle = struct.unpack("<h", characteristic[3:5])[0]
-                # print "UUID_16:", characteristic[5:].encode('hex')
+                # print("UUID_16:", characteristic[5:].encode('hex'))
                 uuid_16 = struct.unpack("<h", characteristic[5:])[0]
                 conversion = (uuid_16 * (2 ** 96)) + int(bluetooth_base_addr, 16)
                 uuid_128 = struct.pack(">QQ", (conversion >> 64) & 0xFFFFFFFFFFFFFFFF,
@@ -676,7 +678,7 @@ def gatt_procedure_discover_characteristics(connection_manager, connection, devi
             value_handle = struct.unpack("<h", characteristic_data[3:5])[0]
             uuid_128 = struct.unpack("<QQ", characteristic_data[5:])
             uuid_128 = "%016x%016x" % (uuid_128[1], uuid_128[0])
-            # print "UUID128:", uuid_128
+            # print("UUID128:", uuid_128)
             uuid_128 = '-'.join((uuid_128[:8], uuid_128[8:12], uuid_128[12:16], uuid_128[16:20], uuid_128[20:]))
             if handle == -1:
                 handle = 0xffff
@@ -742,12 +744,12 @@ def gatt_procedure_discover_includes(connection_manager, connection, device):
             while i < len(include_data):
                 includes.append(include_data[i:i + 7])
                 i += 7
-            # print "Services:", services
+            # print("Services:", services)
             for incl in includes:
                 handle = struct.unpack("<H", incl[:2])[0]
                 included_att_handle = struct.unpack("<H", incl[2:4])[0]
                 end_group_handle = struct.unpack("<H", incl[4:6])[0]
-                # print "UUID_16:", characteristic[5:].encode('hex')
+                # print("UUID_16:", characteristic[5:].encode('hex'))
                 included_service_uuid_16 = struct.unpack("<H", incl[6:])[0]
                 #conversion = (uuid_16 * (2 ** 96)) + int(bluetooth_base_addr, 16)
                 #uuid_128 = struct.pack(">QQ", (conversion >> 64) & 0xFFFFFFFFFFFFFFFF,

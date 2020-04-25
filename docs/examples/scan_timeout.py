@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from blesuite.connection_manager import BLEConnectionManager
 
 adapter = 0
@@ -24,4 +26,4 @@ with BLEConnectionManager(adapter, role) as connection_manager:
             for info_key in info.keys():
                 readable_discovered_devices[i][info_key] = info[info_key]
 
-    print readable_discovered_devices
+    print(readable_discovered_devices)

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from blesuite.connection_manager import BLEConnectionManager
 import blesuite.utils.gap_utils as gap_utils
 import bdaddr
@@ -9,11 +11,11 @@ target_address_type = "random"
 target_device_bledevice = None
 
 with BLEConnectionManager(adapter, 'central') as connection_manager:
-    print "Smart scanning device for clone"
+    print("Smart scanning device for clone")
     connection = connection_manager.init_connection(target_address, target_address_type)
     connection_manager.connect(connection)
     target_device_bledevice = connection_manager.smart_scan(connection)
-    print "Done smart scanning"
+    print("Done smart scanning")
 
 with BLEConnectionManager(adapter, "peripheral") as connection_manager:
     # spoofing address
@@ -21,7 +23,7 @@ with BLEConnectionManager(adapter, "peripheral") as connection_manager:
     if ret == -1:
         raise ValueError('Spoofing failed. Your device may not be supported.')
     else:
-        print "Address spoofed"
+        print("Address spoofed")
     # Using distinguishable name for demonstration purposes
     local_name = "TargetDevice"
     complete_name = "TargetDevice"
@@ -47,9 +49,9 @@ with BLEConnectionManager(adapter, "peripheral") as connection_manager:
     # Begin advertising, wait for BLE connection, and retrieve BLE connection object
     result, ble_connection = connection_manager.advertise_and_wait_for_connection()
     if result:
-        print "Got a connection. Starting Scan."
+        print("Got a connection. Starting Scan.")
         # if success in getting a peer to connect to us, quickly begin smart scanning
         # and attempt to read from any discovered descriptor
         connection_manager.smart_scan(ble_connection, attempt_desc_read=True, timeout=3*1000)
     else:
-        print "Timeout reached. No one connected to us."
+        print("Timeout reached. No one connected to us.")

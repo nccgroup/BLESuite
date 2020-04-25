@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from blesuite.connection_manager import BLEConnectionManager
 
 adapter = 0
@@ -17,13 +19,13 @@ with BLEConnectionManager(adapter, role) as connection_manager:
     read_request = connection_manager.gatt_read_handle(connection, 0x0a)
 
     if read_request.has_error():
-        print "Got error:", read_request.get_error_message()
+        print("Got error:", read_request.get_error_message())
     elif read_request.has_response():
-        print "Got response:", read_request.response.data, "from handle", hex(read_request.handle)
+        print("Got response:", read_request.response.data, "from handle", hex(read_request.handle))
 
     # write to handle 0x0b
     write_request = connection_manager.gatt_write_handle(connection, 0x0b, "test value")
     if write_request.has_error():
-        print "Got error:", write_request.get_error_message()
+        print("Got error:", write_request.get_error_message())
     elif write_request.has_response():
-        print "Got response:", write_request.response.data, "from handle", hex(write_request.handle)
+        print("Got response:", write_request.response.data, "from handle", hex(write_request.handle))

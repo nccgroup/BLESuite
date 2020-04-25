@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from blesuite.connection_manager import BLEConnectionManager
 import gevent
 import time
@@ -45,8 +47,8 @@ with BLEConnectionManager(adapter, role) as connection_manager:
         for device in readable_discovered_devices.keys():
             if ('Complete Local Name' in readable_discovered_devices[device].keys() and
                readable_discovered_devices[device]['Complete Local Name'] == target_device_name):
-                print "Found BLEBoy at address: %s with type: %s" % (device,
-                                                                     readable_discovered_devices[device]['address_type'])
+                print("Found BLEBoy at address: %s with type: %s" % (device,
+                                                                     readable_discovered_devices[device]['address_type']))
                 device_found = True
                 break
 

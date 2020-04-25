@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from blesuite.connection_manager import BLEConnectionManager
 
 adapter = 0
@@ -18,4 +20,4 @@ with BLEConnectionManager(adapter, role) as connection_manager:
     connection_manager.add_key_to_security_manager_long_term_key_database(address_bytes, peer_address_type,
                                                                           ltk, ediv, rand, irk, csrk,
                                                                           security_mode, security_level)
-    print connection_manager.get_security_manager_long_term_key_database().long_term_keys
+    print(connection_manager.get_security_manager_long_term_key_database().long_term_keys)

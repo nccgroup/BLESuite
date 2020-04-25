@@ -1,4 +1,7 @@
 # ##originally named gatt_core.py, renamed since this contains the core of our stack.
+
+from __future__ import print_function
+
 import sys
 import errno
 import select as native_select
@@ -104,9 +107,9 @@ class SocketHandler(object):
             try:
                 gap = GAP()
                 gap.decode(data)
-                print "GAP: %s" % gap
+                print("GAP: %s" % gap)
             except Exception as e:
-                print e
+                print(e)
                 pass
 
     def generate_response(self, data):
@@ -281,7 +284,7 @@ class SocketHandler(object):
                 raise
 
             event = self.conn.role.stack.handle_data()
-            # print "Event Struct:", event
+            # print("Event Struct:", event)
             log.debug("Got event!:%s", event.event_type)
 
             if event.event_type == BTEvent.SCAN_DATA:
@@ -429,12 +432,12 @@ class SocketHandler(object):
                         self.generate_response(event.data)
                 finally:
                     self.conn.mutex.release()
-                # print event
+                # print(event)
                 self.event_handler.on_att_event(event.data[0], event.data[1])
             elif event.event_type == BTEvent.NONE:
 
                 log.debug("Received NONE event!")
-                # print event
+                # print(event)
                 if self.event_handler is not None:
                     self.event_handler.on_unknown_event(event.data)
 
@@ -601,9 +604,9 @@ class Connection(object):
             kind = self.seen.get(addr, (None,))[0]
 
         if kind is None:
-            print "Error: please give address type"
+            print("Error: please give address type")
         else:
-            print "Connecting.."
+            print("Connecting..")
 
             if conn_handle in self.connection_statuses.keys() and self.connection_statuses[conn_handle] is True:
                 log.debug("Connection already established")

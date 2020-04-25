@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from blesuite.connection_manager import BLEConnectionManager
 from blesuite.entities.gatt_device import BLEDevice
 from blesuite.entities.permissions import Permissions
@@ -110,7 +112,7 @@ with BLEConnectionManager(adapter, role) as connection_manager:
     result, ble_connection = connection_manager.advertise_and_wait_for_connection()
 
     if result:
-        print "BLE connection established"
+        print("BLE connection established")
         # Wait for pairing process to complete after being initiated by the Central device
         while True:
             if (connection_manager.is_connection_encrypted(ble_connection) and
@@ -118,15 +120,15 @@ with BLEConnectionManager(adapter, role) as connection_manager:
                 break
             # Sleep for a second, using gevent to prevent blocking packet routing routine
             gevent.sleep(1)
-        print "Pairing process complete"
+        print("Pairing process complete")
         # export ltk database from security manager
         ltk_db = connection_manager.export_security_manager_long_term_key_database_for_storage()
 
         for ltk_entry in ltk_db:
-            print "Address: %s addr_type: %d LTK: %s Ediv: %s Rand: %s IRK: %s CSRK: %s security mode: %s security level: %s" % (
+            print("Address: %s addr_type: %d LTK: %s Ediv: %s Rand: %s IRK: %s CSRK: %s security mode: %s security level: %s" % (
                 ltk_entry['address'], ltk_entry['address_type'], ltk_entry['ltk'], ltk_entry['ediv'], ltk_entry['rand'], ltk_entry['irk'],
                 ltk_entry['csrk'], ltk_entry['security_mode'], ltk_entry['security_level']
-            )
+            ))
         # Write JSON to file
         ltk_json_output = json.dumps(ltk_db, indent=4)
         f = open("long_term_key_database.json", "w")
@@ -134,4 +136,4 @@ with BLEConnectionManager(adapter, role) as connection_manager:
         f.close()
 
     else:
-        print "Failed to get BLE Connection"
+        print("Failed to get BLE Connection")
