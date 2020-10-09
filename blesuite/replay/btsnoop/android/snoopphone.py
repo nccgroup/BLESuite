@@ -1,14 +1,14 @@
 import os
 import tempfile
-import ConfigParser
+import configparser
 
-from phone import Phone
+from .phone import Phone
 
 
 BTSTACK_CONFIG_FILE = 'bt_stack.conf'
 # Needs to always be in UNIX format, hence no os.path.join
 BTSTACK_CONFIG_PATH = '/etc/bluetooth/' + BTSTACK_CONFIG_FILE
- 
+
 BTSNOOP_FALLBACK_FILE = 'btsnoop_hci.log'
 # Needs to always be in UNIX format, hence no os.path.join
 BTSNOOP_FALLBACK_PATH = '/sdcard/' + BTSNOOP_FALLBACK_FILE
@@ -21,7 +21,7 @@ class SnoopPhone(Phone):
         self._tmp_dir = tempfile.mkdtemp()
 
     def pull_btsnoop(self, dst=None):
-        
+
         btsnoop_path, btsnoop_file = self._locate_btsnoop()
 
         if not dst:
@@ -29,7 +29,7 @@ class SnoopPhone(Phone):
 
         ret = super(SnoopPhone, self).pull(btsnoop_path, dst)
         if ret[0] == 0:
-            print ret[1] + " " + dst 
+            print (ret[1] + " " + dst )
             return dst
         else:
             return None
@@ -55,13 +55,13 @@ class SnoopPhone(Phone):
 
             def readline(self):
                 if self.dummy:
-                    try: 
+                    try:
                         return self.dummy
-                    finally: 
+                    finally:
                         self.dummy = None
-                else: 
+                else:
                     return self.fp.readline()
-        
+
         # Parse key/values
         parser = ConfigParser.SafeConfigParser()
         with open(path, 'r') as f:

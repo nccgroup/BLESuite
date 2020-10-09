@@ -1,1 +1,1 @@
-from . import btsnoop
+from . import btsnooper

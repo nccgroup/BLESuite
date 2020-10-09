@@ -26,11 +26,11 @@ BTSNOOP_FLAGS = {
 
 
 def parse(filename):
-    """ 
+    """
     Parse a Btsnoop packet capture file.
 
     Btsnoop packet capture file is structured as:
-    
+
     -----------------------
     | header              |
     -----------------------
@@ -42,7 +42,7 @@ def parse(filename):
     -----------------------
     | packet record nbr n |
     -----------------------
-    
+
     References can be found here:
     * http://tools.ietf.org/html/rfc1761
     * http://www.fte.com/webhelp/NFC/Content/Technical_Information/BT_Snoop_File_Format.htm
@@ -55,7 +55,7 @@ def parse(filename):
     * data
     """
     with open(filename, "rb") as f:
-    
+
         # Validate file header
         (identification, version, type) = _read_file_header(f)
         _validate_file_header(identification, version, type)
@@ -63,7 +63,7 @@ def parse(filename):
         # Not using the following data:
         # record[1] - original length
         # record[4] - cumulative drops
-        return map(lambda record: 
+        return map(lambda record:
             (record[0], record[2], record[3], _parse_time(record[5]), record[6]),
             _read_packet_records(f))
 
@@ -71,7 +71,7 @@ def parse(filename):
 def _read_file_header(f):
     """
     Header should conform to the following format
-    
+
     ----------------------------------------
     | identification pattern|
     | 8 bytes                              |
@@ -93,11 +93,11 @@ def _read_file_header(f):
 def _validate_file_header(identification, version, data_link_type):
     """
     The identification pattern should be:
-        'btsnoop\0' 
-    
+        'btsnoop\0'
+
     The version number should be:
         1
-    
+
     The data link type can be:
         - Reserved	0 - 1000
         - Un-encapsulated HCI (H1)	1001
@@ -105,39 +105,39 @@ def _validate_file_header(identification, version, data_link_type):
         - HCI BSCP	1003
         - HCI Serial (H5)	1004
         - Unassigned	1005 - 4294967295
-        
+
     For SWAP, data link type should be:
         HCI UART (H4)	1002
     """
     assert identification == "btsnoop\0"
     assert version == 1
     assert data_link_type == 1002
-    print "Btsnoop capture file version {0}, type {1}".format(version, data_link_type)
+    print ("Btsnoop capture file version {0}, type {1}".format(version, data_link_type))
 
 
 def _read_packet_records(f):
     """
     A record should confirm to the following format
-    
+
     --------------------------
     | original length        |
-    | 4 bytes   
+    | 4 bytes
     --------------------------
     | included length        |
-    | 4 bytes   
+    | 4 bytes
     --------------------------
     | packet flags           |
-    | 4 bytes   
+    | 4 bytes
     --------------------------
     | cumulative drops       |
-    | 4 bytes   
+    | 4 bytes
     --------------------------
     | timestamp microseconds |
     | 8 bytes
     --------------------------
     | packet data            |
     --------------------------
-    
+
     All integer values are stored in "big-endian" order, with the high-order bits first.
     """
     seq_nbr = 1
@@ -146,24 +146,24 @@ def _read_packet_records(f):
         if not pkt_hdr or len(pkt_hdr) != 24:
             # EOF
             break
-    
+
         orig_len, inc_len, flags, drops, time64 = struct.unpack( ">IIIIq", pkt_hdr)
         assert orig_len == inc_len
-        
+
         data = f.read(inc_len)
         assert len(data) == inc_len
-    
+
         yield ( seq_nbr, orig_len, inc_len, flags, drops, time64, data )
         seq_nbr += 1
 
 
 def _parse_time(time):
     """
-    Record time is a 64-bit signed integer representing the time of packet arrival, 
+    Record time is a 64-bit signed integer representing the time of packet arrival,
     in microseconds since midnight, January 1st, 0 AD nominal Gregorian.
 
-    In order to avoid leap-day ambiguity in calculations, note that an equivalent 
-    epoch may be used of midnight, January 1st 2000 AD, which is represented in 
+    In order to avoid leap-day ambiguity in calculations, note that an equivalent
+    epoch may be used of midnight, January 1st 2000 AD, which is represented in
     this field as 0x00E03AB44A676000.
     """
     time_betw_0_and_2000_ad = int("0x00E03AB44A676000", 16)
@@ -183,25 +183,25 @@ def print_hdr():
     """
     Print the script header
     """
-    print ""
-    print "##############################"
-    print "#                            #"
-    print "#    btsnoop parser v0.1     #"
-    print "#                            #"
-    print "##############################"
-    print ""
+    print ("")
+    print ("##############################")
+    print ("#                            #")
+    print ("#    btsnoop parser v0.1     #")
+    print ("#                            #")
+    print ("##############################")
+    print ("")
 
 
 def main(filename):
     records = parse(filename)
-    print records
+    print (records)
     return 0
 
-    
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print __doc__
+        print (__doc__)
         sys.exit(1)
-        
+
     print_hdr()
     sys.exit(main(sys.argv[1]))

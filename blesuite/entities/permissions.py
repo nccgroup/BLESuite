@@ -22,4 +22,4 @@ class Permissions:
         EXTENDED_PROPERTIES: "Extended Properties"
     }
 
-    permission_dictionary_lookup_by_name = {name.lower(): opcode for opcode, name in permission_dict.iteritems()}
+    permission_dictionary_lookup_by_name = {name.lower(): opcode for opcode, name in permission_dict.items()}

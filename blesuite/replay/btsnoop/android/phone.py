@@ -1,5 +1,5 @@
 from __future__ import unicode_literals
-from executor import Executor
+from blesuite.replay.btsnoop.android.executor import Executor
 
 class Phone(object):
 

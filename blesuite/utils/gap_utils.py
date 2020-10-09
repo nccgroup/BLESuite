@@ -27,7 +27,7 @@ class Roles:
     ROLE_PERIPHERAL = 0x01
 
 
-GAP_ADV_AD_TYPE_BY_NAME = {name: opcode for opcode, name in GAP_ADV_AD_TYPES.iteritems()}
+GAP_ADV_AD_TYPE_BY_NAME = {name: opcode for opcode, name in GAP_ADV_AD_TYPES.items()}
 
 
 def decode_gap_data(data):

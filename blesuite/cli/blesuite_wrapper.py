@@ -32,7 +32,7 @@ def ble_service_read(address, adapter, addressType, handles, UUIDS, timeout):
         connection = connectionManager.init_connection(address, addressType)
         success = connectionManager.connect(connection)
         if not success:
-            print "Failed to connected to target device"
+            print ("Failed to connected to target device")
             return
 
         uuidData = []
@@ -98,7 +98,7 @@ def ble_service_read_async(address, adapter, addressType, handles, UUIDS, timeou
         connection = connectionManager.init_connection(address, addressType)
         success = connectionManager.connect(connection)
         if not success:
-            print "Failed to connected to target device"
+            print ("Failed to connected to target device")
             return
 
         uuidRequests = []
@@ -187,7 +187,7 @@ def ble_service_write(address, adapter, addressType, handles, inputs, timeout):
         connection = connectionManager.init_connection(address, addressType)
         success = connectionManager.connect(connection)
         if not success:
-            print "Failed to connected to target device"
+            print ("Failed to connected to target device")
             return
         handleData = []
         for inputVal in inputs:
@@ -240,7 +240,7 @@ def ble_service_write_async(address, adapter, addressType, handles, inputs, time
         connection = connectionManager.init_connection(address, addressType)
         success = connectionManager.connect(connection)
         if not success:
-            print "Failed to connected to target device"
+            print ("Failed to connected to target device")
             return
         handleRequests = []
 
@@ -308,13 +308,13 @@ def ble_handle_subscribe(address, handles, adapter, addressType, mode, listenTim
         raise Exception("%s Bluetooth address is not valid. Please supply a valid Bluetooth address value." % address)
 
     if mode == 0:
-        configVal = str(bytearray([00, 00]))
+        configVal = str(bytearray(["\x00", "\x00"]))
     elif mode == 1:
-        configVal = str(bytearray([01, 00]))
+        configVal = str(bytearray(["\x01", "\x00"]))
     elif mode == 2:
-        configVal = str(bytearray([02, 00]))
+        configVal = str(bytearray(["\x02", "\x00"]))
     elif mode == 3:
-        configVal = str(bytearray([03, 00]))
+        configVal = str(bytearray(["\x03", "\x00"]))
     else:
         raise Exception("%s is not a valid mode. Please supply a value between 0 and 3 (inclusive)" % mode)
 
@@ -326,20 +326,20 @@ def ble_handle_subscribe(address, handles, adapter, addressType, mode, listenTim
         def on_att_event(self, connection_handle, data):
             from blesuite.pybt.att import ATT_PDU_OPCODE_BY_NAME
             if data.opcode == 0x1b:#notification
-                print "\nNotification on Handle %s" % hex(data.gatt_handle)
-                print "======================="
+                print ("\nNotification on Handle %s" % hex(data.gatt_handle))
+                print ("=======================")
                 #print format(originHandle, "#8x")
                 print_helper.print_data_and_hex([data.value], False)
             elif data.opcode == 0x1d:#indication
-                print "\nIndication on Handle %s" % hex(data.gatt_handle)
-                print "======================="
+                print ("\nIndication on Handle %s" % hex(data.gatt_handle))
+                print ("=======================")
                 print_helper.print_data_and_hex([data.value], False)
 
     with connection_manager.BLEConnectionManager(adapter, 'central') as connectionManager:
         connection = connectionManager.init_connection(address, addressType)
         success = connectionManager.connect(connection)
         if not success:
-            print "Failed to connected to target device"
+            print ("Failed to connected to target device")
             return
         connectionManager.set_event_handler(EventHandler(connectionManager))
 
@@ -386,7 +386,7 @@ def ble_service_scan(address, adapter, addressType):
         connection = connectionManager.init_connection(address, addressType)
         success = connectionManager.connect(connection)
         if not success:
-            print "Failed to connected to target device"
+            print ("Failed to connected to target device")
             return
 
         device = connectionManager.gatt_discover_primary_services(connection)
@@ -421,19 +421,19 @@ def ble_run_smart_scan(address, adapter, addressType, skip_device_info_query=Fal
         connection = connectionManager.init_connection(address, addressType)
         success = connectionManager.connect(connection)
         if not success:
-            print "Failed to connected to target device"
+            print ("Failed to connected to target device")
             return
         logger.debug("Connected!")
         device = connectionManager.smart_scan(connection, device=None,
                                               look_for_device_info=(not skip_device_info_query),
                                               attempt_desc_read=attempt_read, timeout=timeout)
 
-    print "**********************"
-    print "Smart Scan Results"
-    print "**********************"
+    print ("**********************")
+    print ("Smart Scan Results")
+    print ("**********************")
 
     device.print_device_structure()
 
-    print "**********************"
-    print "Finished"
-    print "**********************"
+    print ("**********************")
+    print ("Finished")
+    print ("**********************")

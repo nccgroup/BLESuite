@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 '''
 BLUETOOTH SPECIFICATION Version 5.0 | Vol 3, Part F page 2176
 
-Attribute permissions are a combination of access permissions, encryption permissions, authentication permissions 
+Attribute permissions are a combination of access permissions, encryption permissions, authentication permissions
 and authorization permissions.
 The following access permissions are possible:
 * Readable
@@ -26,9 +26,9 @@ The following authorization permissions are possible:
 
 BLUETOOTH SPECIFICATION Version 5.0 | Vol 3, Part G page 2226
 
-Attribute Permissions is part of the Attribute that cannot be read from or written to using the Attribute Protocol. 
-It is used by the server to determine whether read or write access is permitted for a given attribute. 
-Attribute Permissions are established by the GATT profile, a higher layer profile or are implementation 
+Attribute Permissions is part of the Attribute that cannot be read from or written to using the Attribute Protocol.
+It is used by the server to determine whether read or write access is permitted for a given attribute.
+Attribute Permissions are established by the GATT profile, a higher layer profile or are implementation
 specific if not specified.
 '''
 GATT_PERMIT_READ = 0x01
@@ -435,13 +435,13 @@ class Server:
             ))
             return (False, e.code)
         resp_body = ""
-        print handle
-        print offset
-        print value
+        print (handle)
+        print (offset)
+        print (value)
         resp_body += pack('<H', handle)
         resp_body += pack('<H', offset)
         resp_body += value
-        print "returning success"
+        print ("returning success")
         return (True, resp_body)
 
     def execute_write(self, flags):
@@ -1341,14 +1341,14 @@ class AttributeDatabase:
 
     def debug_print_db(self):
 
-        print "Attribute Database"
-        print "Handle\t| Attribute Data"
-        print "=================="
+        print ("Attribute Database")
+        print ("Handle\t| Attribute Data")
+        print ("==================")
         for key in self.attributes.keys():
             att = self.attributes[key]
-            print "{}\t{} (0x{})".format(str(key), att.uuid.uuid, str(att.uuid.packed).encode('hex'))
-            print "\t " + "properties: " + hex(att.properties)
-            print "\t " + "read security mode: ", att.sec_mode_read.security_mode, " level: ", att.sec_mode_read.security_level
-            print "\t " + "write security mode: ", att.sec_mode_write.security_mode, " level: ", att.sec_mode_write.security_level
-            print "\t " + "authz required: ", att.require_authorization
-            print "\t " + "value: ", repr(att.value), "hex encoded: ", str(att.value).encode('hex')
+            print ("{}\t{} (0x{})".format(str(key), att.uuid.uuid, str(att.uuid.packed).encode('hex')))
+            print ("\t " + "properties: " + hex(att.properties))
+            print ("\t " + "read security mode: ", att.sec_mode_read.security_mode, " level: ", att.sec_mode_read.security_level)
+            print ("\t " + "write security mode: ", att.sec_mode_write.security_mode, " level: ", att.sec_mode_write.security_level)
+            print ("\t " + "authz required: ", att.require_authorization)
+            print ("\t " + "value: ", repr(att.value), "hex encoded: ", str(att.value).encode('hex'))

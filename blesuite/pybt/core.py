@@ -104,9 +104,9 @@ class SocketHandler(object):
             try:
                 gap = GAP()
                 gap.decode(data)
-                print "GAP: %s" % gap
+                print ("GAP: %s" % gap)
             except Exception as e:
-                print e
+                print (e)
                 pass
 
     def generate_response(self, data):
@@ -601,9 +601,9 @@ class Connection(object):
             kind = self.seen.get(addr, (None,))[0]
 
         if kind is None:
-            print "Error: please give address type"
+            print ("Error: please give address type")
         else:
-            print "Connecting.."
+            print ("Connecting..")
 
             if conn_handle in self.connection_statuses.keys() and self.connection_statuses[conn_handle] is True:
                 log.debug("Connection already established")
@@ -1008,7 +1008,7 @@ class Connection(object):
 
     def on_connect(self, thunk):
         self.onconnect.append(thunk)
-    
+
     def raw(self, cmd):
         if self.block:
             while True:

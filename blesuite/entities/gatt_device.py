@@ -226,42 +226,42 @@ class BLEDevice(object):
 
         :return:
         """
-        print "\nDevice"
-        print "======="
-        print self.address, "\n"
-        print "\nDevice Details"
-        print "==============="
+        print ("\nDevice")
+        print ("=======")
+        print (self.address, "\n")
+        print ("\nDevice Details")
+        print ("===============")
         for info in self.device_information:
-            print info[0].upper()+":"
-            print "\tUUID:", info[1]
+            print (info[0].upper()+":")
+            print ("\tUUID:", info[1])
             if info[2] is not None:
-                print "\tHandle:", "".join("{:02x}".format(ord(c)) for c in info[2])
+                print ("\tHandle:", "".join("{:02x}".format(ord(c)) for c in info[2]))
             else:
-                print "\tHandle:"
+                print ("\tHandle:")
             for val in info[3]:
                 print_data_and_hex(val, False, prefix="\t")
-        print "Services and Characteristics"
-        print "============================="
+        print ("Services and Characteristics")
+        print ("=============================")
         for service in self.services:
-            print service.uuid, " start:", format(service.start, '#8x'), " end:", format(service.end, '#8x'),\
-                  "type: ", service.get_type_string()
+            print (service.uuid, " start:", format(service.start, '#8x'), " end:", format(service.end, '#8x'),\
+                  "type: ", service.get_type_string())
             for incl in service.includes:
-                print "\tIncluded Service - Handle:", incl.handle, "Handles of included service:", \
+                print ("\tIncluded Service - Handle:", incl.handle, "Handles of included service:", \
                     format(incl.included_service_att_handle, '#8x'),\
                     "end group handle:", format(incl.included_service_end_group_handle, '#8x'), " Service UUID:", \
-                    incl.included_service_uuid, " type: ", incl.get_type_string()
+                    incl.included_service_uuid, " type: ", incl.get_type_string())
             for characteristic in service.characteristics:
-                print "\t", characteristic.uuid, " value_handle:", format(characteristic.value_handle, '#8x'),\
+                print ("\t", characteristic.uuid, " value_handle:", format(characteristic.value_handle, '#8x'),\
                     " declaration handle:", format(characteristic.handle, '#8x'), " properties:", \
                     format(characteristic.gatt_properties, '#4x'), " permissions:", \
-                    characteristic.calculate_permission(), " type: ", characteristic.get_type_string()
+                    characteristic.calculate_permission(), " type: ", characteristic.get_type_string())
                 for descriptor in characteristic.descriptors:
-                    print "\t\tUUID:", descriptor.uuid
+                    print ("\t\tUUID:", descriptor.uuid)
                     if descriptor.type is None:
-                        print "\t\t\tType:"
+                        print ("\t\t\tType:")
                     else:
-                        print "\t\t\tType: " + descriptor.type_string
-                    print "\t\t\thandle:", format(descriptor.handle, '#8x')
+                        print ("\t\t\tType: " + descriptor.type_string)
+                    print ("\t\t\thandle:", format(descriptor.handle, '#8x'))
                     #print "Raw:", descriptor.lastReadValue
                     if descriptor.value is not None:
                         if isinstance(descriptor.value, list):
@@ -270,6 +270,5 @@ class BLEDevice(object):
                         else:
                             print_data_and_hex(descriptor.value, False, prefix="\t\t\t")
 
-            print ""
-        print "=============================\n"
-
+            print ("")
+        print ("=============================\n")

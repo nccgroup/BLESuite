@@ -26,7 +26,7 @@ def gatt_writes(dev, addr, addrType, rows, mtu=23, wait=False):
             gatt_write(connection_manager, conn, handle_base10, message, fuzz_positions,
                        num_iterations)
         if wait:
-            print "Replay finished. Will continue to wait until user force's exit (ctrl+c)"
+            print ("Replay finished. Will continue to wait until user force's exit (ctrl+c)")
             while True:
                 gevent.sleep(1)
 
@@ -42,7 +42,7 @@ def gatt_write(connection_manager, conn, handle, message, fuzz_positions, num_it
     for _ in range(num_iterations):
         handle = handle.encode('hex')
         current_message = current_message.decode('hex')
-        print "sending: " + current_message + " on " + handle
+        print ("sending: " + current_message + " on " + handle)
         if not connection_manager.is_connected(conn):
             connection_manager.connect(conn)
         req = connection_manager.gatt_write_handle(conn, int(handle, 16), current_message)

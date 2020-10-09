@@ -63,7 +63,7 @@ class LongTermKeyDatabase:
 
     def is_ltk_in_db(self, address, ediv, rand):
         log.debug("LTK Lookup: Address: %s, ediv: %s, rand:%s" % (address, ediv, rand))
-        print self.long_term_keys
+        print (self.long_term_keys)
         # HACK: When we support full SM and SMP, we will be able to handle private addresses that change,
         # but for now we can do a look-up based on the ediv and rand for LE Legacy pairing
         for entry in self.long_term_keys:

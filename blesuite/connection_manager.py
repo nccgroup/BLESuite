@@ -126,14 +126,14 @@ class BLEConnectionManager(object):
         self.stack_connection = None
         self.connections = []
 
-        if role is 'central':
+        if role == 'central':
             logger.debug("creating central")
             self._create_central()
             logger.debug("creating PyBT connection")
             self._create_stack_connection(ROLE_CENTRAL)
             logger.debug("creating listeners")
             self._start_listeners()
-        elif role is 'peripheral':
+        elif role == 'peripheral':
             logger.debug("creating peripheral role")
             self._create_peripheral()
             logger.debug("creating PyBT connection")
@@ -206,7 +206,7 @@ class BLEConnectionManager(object):
     def get_discovered_devices(self):
         """
         Get a dictionary of address seen during a scan and the associated advertising data.
-        
+
         :return: Dictionary of seen addresses and advertising data
         :rtype: dict {"<address>":(<addressTypeInt>, "<advertisingData>")}
         """
@@ -216,10 +216,10 @@ class BLEConnectionManager(object):
         """
         Set the BTEventHandler for the pybt.core.SocketHandler class that will trigger when a Bluetooth Event
         is received by the stack.
-        
+
         :param event_class: Event handler class instance.
         :type event_class: BTEventHandler
-        
+
         :return: Success state
         :rtype: bool
         """
@@ -269,7 +269,7 @@ class BLEConnectionManager(object):
 
     def is_connected(self, connection):
         """ Return whether the specified connection is connected to the peer device.
-        
+
         :return: Return connection status
         :rtype: bool
         """
@@ -278,13 +278,13 @@ class BLEConnectionManager(object):
     def init_connection(self, address, address_type):
         """
         Create BLEConnection object that represents the host's connection to a BLE peripheral.
-        
+
         :param address: BD_ADDR of target BLE Peripheral
         :param address_type: Address type of target BLE Peripheral [public | random]
 
         :type address: string
         :type address_type: string
-        
+
         :return: Return BLEConnection object that is used in any communication function.
         :rtype: BLEConnection
         """
@@ -302,10 +302,10 @@ class BLEConnectionManager(object):
     def get_bleconnection_from_connection_handle(self, connection_handle):
         """
         Lookup a BLEConnection based on a supplied connection handle value.
-        
+
         :param connection_handle: Connection handle used to look up an existing BLEConnection
         :type connection_handle: int
-        
+
         :return: BLEConnection or None
         :rtype: BLEConnection or None
         """
@@ -317,7 +317,7 @@ class BLEConnectionManager(object):
     def connect(self, ble_connection, timeout=15):
         """
         Initiate a connection with a peer BLEDevice.
-        
+
         :param ble_connection: BLEConnection that represents the connection between our HCI device and the peer
         :type ble_connection: BLEConnection
         :param timeout: Connection timeout in seconds (default: 15)
@@ -345,7 +345,7 @@ class BLEConnectionManager(object):
     def disconnect(self, connection, reason=0x16):
         """
         Disconnect from a peer BLE device.
-        
+
         :param connection: BLEConnection to disconnect
         :type connection: BLEConnection
         :param reason: The reason for the disconnection (default: 0x16 - Connection terminated by local host). Reasons defined in BLUETOOTH SPECIFICATION Version 5.0 | Vol 2, Part E page 777
@@ -359,7 +359,7 @@ class BLEConnectionManager(object):
         until a paired connection is received, pairing fails, or the timeout is reached.
         If custom pairing request parameters are required, configure
         the parameters prior to calling this function.
-        
+
         :param ble_connection: The BLEConnection to initiate pairing on
         :type ble_connection: BLEConnection
         :param timeout: Pairing timeout in seconds (default: 15)
@@ -388,7 +388,7 @@ class BLEConnectionManager(object):
         Send pairing request to peer device. This is meant as an asynchronous way for a user to initiate pairing
         and manage the connection while waiting for the pairing process to complete. Use BLEConnectionManager.pair
         for a synchronous pairing procedure.
-        
+
         :param ble_connection: The BLEConnection to initiate pairing on
         :type ble_connection: BLEConnection
         :return:
@@ -401,7 +401,7 @@ class BLEConnectionManager(object):
     def is_pairing_in_progress(self, ble_connection):
         """
         Retrieve pairing status of BLEConnection
-        
+
         :param ble_connection: The BLEConnection to view the pairing status of
         :type ble_connection: BLEConnection
         :return: Status of BLE pairing
@@ -412,7 +412,7 @@ class BLEConnectionManager(object):
     def did_pairing_fail(self, ble_connection):
         """
         Lookup whether a pairing failed status was triggered
-        
+
         :param ble_connection: The BLEConnection to check for a pairing failure
         :type ble_connection: BLEConnection
         :return: Pairing failure status (True means failure was triggered)
@@ -423,7 +423,7 @@ class BLEConnectionManager(object):
     def is_connection_encrypted(self, ble_connection):
         """
         Retrieve BLEConnection encryption status
-        
+
         :param ble_connection: The BLEConnection to check the encryption status of
         :type ble_connection: BLEConnection
         :return: Encryption status
@@ -435,7 +435,7 @@ class BLEConnectionManager(object):
         """
         Initiate BLEConnection encryption with encryption keys present in the Security Manager's LongTermKeyDatabase.
         Encryption key look-up is done based on the address of the peer device's address.
-        
+
         :param ble_connection: The BLEConnection to resume encryption on
         :type ble_connection: BLEConnection
         :return: Result of encryption initiation with existing keys (True if encryption initiation was successfully start, False if encryption keys were not found)
@@ -451,7 +451,7 @@ class BLEConnectionManager(object):
     def get_security_manager_long_term_key_database(self):
         """
         Retrieve the LongTermKeyDatabase from the Security Manager
-        
+
         :return: LongTermKeyDatabase from the Security Manager
         :rtype: blesuite.pybt.sm.LongTermKeyDatabase
         """
@@ -462,7 +462,7 @@ class BLEConnectionManager(object):
         """
         Add an entry to the LongTermKeyDatabase that will be used for encryption key lookups when encryption
         on a BLEConnection is initiated
-        
+
         :param address: Address of peer device (byte form, big-endian)
         :type address: str
         :param address_type: Address type of peer device
@@ -493,7 +493,7 @@ class BLEConnectionManager(object):
         Export Security Manager LongTermKeyDatabase as a list of dictionary containing BLE
         encryption properties (LTK, EDIV, random,
         CSRK, IRK, security mode, security level) with integers and hex encoded strings
-        
+
         :return: LongTermKeyDatabase as a list of dictionaries with integers and hex encoded strings (user-friendly exportable version)
         :rtype: dict
         """
@@ -528,7 +528,7 @@ class BLEConnectionManager(object):
         Import LongTermKeyDatabase and apply it to the Security Manager. Import database format is identical
         to the LongTermKeyDatabase export format with integers and hex encoded strings. The function will perform
         some input validation to ensure proper encoding and value types.
-        
+
         :param long_term_key_database: List of dictionaries of LongTermKeyDatabase entries with integers and hex encoded strings
         :type long_term_key_database: list of dict
         :return:
@@ -616,7 +616,7 @@ class BLEConnectionManager(object):
         See BLUETOOTH SPECIFICATION Version 5.0 | Vol 3, Part H
         page 2340 - 2342 for more details.
         (Security Managers are created per BLE connection and can be modified independently)
-        
+
         :param default_io_cap: IO Capabilities (default: 0x03 - No Input, No Output)
         :type default_io_cap: int
         :param default_oob: Out-of-band Data present and available (default: 0x00)
@@ -676,7 +676,7 @@ class BLEConnectionManager(object):
         sharing method (association model), and which keys will be exchanged when pairing is complete (if any).
         See BLUETOOTH SPECIFICATION Version 5.0 | Vol 3, Part H
         page 2340 - 2342 for more details.
-        
+
         :param ble_connection: BLEConnection to modify Security Manager pairing parameters of
         :type ble_connection: BLEConnection
         :param io_cap: IO Capabilities (default: 0x03 - No Input, No Output)
@@ -712,7 +712,7 @@ class BLEConnectionManager(object):
     def decode_gap_data(self, data):
         """
         Decode GAP data into GAP class object
-        
+
         :param data: GAP binary data
         :type data: str
         :return: GAP object containing the GAP data that has been parsed
@@ -732,7 +732,7 @@ class BLEConnectionManager(object):
     def generate_gap_data_dict(self, gap):
         """
         Generates a dictionary of user-friendly strings that describe the GAP data in the supplied GAP object.
-        
+
         :param gap: GAP object to retrieve data from
         :type gap: blesuite.pybt.gap.GAP
         :return: Dictionary of readable strings that represent the GAP data stored in the object
@@ -745,7 +745,7 @@ class BLEConnectionManager(object):
     def scan(self, timeout):
         """
         Carry-out BLE scan for the specified timeout and return discovered devices.
-        
+
         :param timeout: Scan timeout in seconds
         :type timeout: int
         :return: Discovered devices
@@ -770,7 +770,7 @@ class BLEConnectionManager(object):
     def start_scan(self):
         """
         Enable scanning on HCI device.
-        
+
         :return:
         :rtype:
         """
@@ -779,7 +779,7 @@ class BLEConnectionManager(object):
     def stop_scan(self):
         """
         Stop scanning on HCI device
-        
+
         :return:
         :rtype:
         """
@@ -788,7 +788,7 @@ class BLEConnectionManager(object):
     def advertise_and_wait_for_connection(self):
         """
         Begin advertising with the HCI device and wait for a connection to be established.
-        
+
         :return: Status of connection with a peer device and the BLEConnection
         :rtype: tuple - bool, (BLEConnection | None)
         """
@@ -807,7 +807,7 @@ class BLEConnectionManager(object):
     def start_advertising(self):
         """
         Enable advertising on HCI device.
-        
+
         :return:
         :rtype:
         """
@@ -816,7 +816,7 @@ class BLEConnectionManager(object):
     def stop_advertising(self):
         """
         Disable advertising on HCI device.
-        
+
         :return:
         :rtype:
         """
@@ -825,7 +825,7 @@ class BLEConnectionManager(object):
     def is_advertising(self):
         """
         Retrieve advertising status of HCI device.
-        
+
         :return: Status of advertising
         :rtype: bool
         """
@@ -834,7 +834,7 @@ class BLEConnectionManager(object):
     def set_advertising_data(self, data):
         """
         Set advertising data.
-        
+
         :param data: Data to include in advertising packets
         :type data: str
         :return:
@@ -845,7 +845,7 @@ class BLEConnectionManager(object):
     def set_scan_response_data(self, data):
         """
         Set scan response data.
-        
+
         :param data: Data to return when a scan packet is received.
         :type data: str
         :return:
@@ -857,7 +857,7 @@ class BLEConnectionManager(object):
                                    destination_addr, destination_addr_type):
         """
         Set advertising parameters. See: BLUETOOTH SPECIFICATION Version 5.0 | Vol 2, Part E page 1251
-        
+
         :param advertisement_type: Advertising packet type (see blesuite.utils.GAP_ADV_TYPES)
         :type advertisement_type:  int
         :param channel_map: Bit field that indicates the advertising channels to use. (Channel 37 - 0x01, Channel 38 - 0x02, Channel 39 - 0x04, all channels - 0x07)
@@ -880,7 +880,7 @@ class BLEConnectionManager(object):
         """
         Set the local name of the HCI device. (Bluetooth Spec says the value needs to be null terminated. If it is
         intended to write a string that is not null terminated, then set the enforcement flag to False).
-        
+
         :param name: Local name to write to HCI device
         :type name: str
         :param enforce_null_termination: Flag to enforce null termination (default: True)
@@ -897,7 +897,7 @@ class BLEConnectionManager(object):
     def get_gatt_server(self):
         """
         Retrieve the GATT server for the BLEConnectionManager instance.
-        
+
         :return: GATT Server
         :rtype: blesuite.pybt.gatt.Server
         """
@@ -909,7 +909,7 @@ class BLEConnectionManager(object):
         to restrict the size of data the stack returns in ATT packets. Note: The MTU used by the class
         is determined by the MTUs exchanged by both connected BLE devices (uses the minimum value of the
         exchanged MTUs).
-        
+
         :param mtu: MTU size in bytes (Bluetooth Spec default is 23 bytes)
         :type mtu: int
         :return:
@@ -921,7 +921,7 @@ class BLEConnectionManager(object):
     def get_server_mtu(self):
         """
         Returns the MTU size from the GATT server.
-        
+
         :return: GATT server MTU (bytes)
         :rtype: int
         """
@@ -933,7 +933,7 @@ class BLEConnectionManager(object):
         Initializes the GATT server based on a supplied BLEDevice entity. All services, includes, characteristics,
         and descriptors are retrieved from the BLEDevice entity and added to the GATT server using the
         properties and permissions configured in the BLEDevice object.
-        
+
         :param ble_device: BLEDevice object to replicate with the GATT server
         :type ble_device: BLEDevice
         :param use_handles_from_ble_device: Flag to indicate that the GATT server should use the attribute handles specified in each BLE entity withhin the BLEDevice. If set to false (default), then the GATT server will automatically assign handles in the order that entites are added to the server.
@@ -1000,7 +1000,7 @@ class BLEConnectionManager(object):
     def set_extended_inquiry_response(self, fec_required=0, formatted_eir_data=None):
         """
         Set the extended inquiry response on the HCI device.
-        
+
         :param fec_required: FEC required (default: 0)
         :type fec_required: 0
         :param formatted_eir_data: Formatted extended inquiry response data (default: None)
@@ -1013,7 +1013,7 @@ class BLEConnectionManager(object):
     def read_remote_used_features(self, connection):
         """
         Issues a read remote used features command to the connected peer device.
-        
+
         :param connection: BLEConnection of target connection
         :type connection: BLEConnection
         :return:
@@ -1052,7 +1052,7 @@ class BLEConnectionManager(object):
         """
         Discover primary GATT services of a peer GATT server and populate (or generate) a BLEDevice object
         with the discovered entities.
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param device: BLEDevice to populate. If None is supplied (default) a new BLEDevice object with the discovered entities will be added.
@@ -1068,7 +1068,7 @@ class BLEConnectionManager(object):
         """
         Discover secondary GATT services of a peer GATT server and populate (or generate) a BLEDevice object
         with the discovered entities.
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param device: BLEDevice to populate. If None is supplied (default) a new BLEDevice object with the discovered entities will be added.
@@ -1084,7 +1084,7 @@ class BLEConnectionManager(object):
         """
         Discover GATT characteristics of a peer GATT server and populate (or generate) a BLEDevice object
         with the discovered entities.
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param device: BLEDevice to populate. If None is supplied (default) a new BLEDevice object with the discovered entities will be added.
@@ -1100,7 +1100,7 @@ class BLEConnectionManager(object):
         """
         Discover GATT service includes of a peer GATT server and populate (or generate) a BLEDevice object
         with the discovered entities.
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param device: BLEDevice to populate. If None is supplied (default) a new BLEDevice object with the discovered entities will be added.
@@ -1116,7 +1116,7 @@ class BLEConnectionManager(object):
         """
         Discover GATT characteristic descriptors of a peer GATT server and populate (or generate) a BLEDevice object
         with the discovered entities.
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param device: BLEDevice to populate. If None is supplied (default) a new BLEDevice object with the discovered entities will be added.
@@ -1133,7 +1133,7 @@ class BLEConnectionManager(object):
         services, includes, characteristics, and descriptors. The scan can also attempt to reach from each
         attribute handle discovered during the scan (regardless of GATT properties returned by the server) in
         order to quickly view data exposed by the device.
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param device: BLEDevice to populate. If None is supplied (default) a new BLEDevice object with the discovered entities will be added.
@@ -1158,7 +1158,7 @@ class BLEConnectionManager(object):
         Send an ATT Write request to the peer device associated with the supplied BLEConnection, attribute
         handle, and data. This is a synchronous call that will wait for either a successful response, error response,
         or the specified timeout (milliseconds) to be reached.
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param handle: Attribute handle of target attribute (0x01 - 0xFFFF)
@@ -1179,7 +1179,7 @@ class BLEConnectionManager(object):
         handle, and data. This is an asynchronous call that will send the request to the peer device and
         return a GATTRequest object that can be monitored for a GATTResponse or GATTError (either through a valid
         peer response, peer error response, or timeout error triggering).
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param handle: Attribute handle of target attribute (0x01 - 0xFFFF)
@@ -1199,7 +1199,7 @@ class BLEConnectionManager(object):
         Send an ATT Write Command request to the peer device associated with the supplied BLEConnection, attribute
         handle, and data. This is an asynchronous call that will send the request to the peer device. No GATTRequest
         will be generated since this command should not ever receive a response from the peer.
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param handle: Attribute handle of target attribute (0x01 - 0xFFFF)
@@ -1222,7 +1222,7 @@ class BLEConnectionManager(object):
         write requests with data and the correct offsets to set a large value for a write operation. An execute
         write request will then be issued to carry out the write. (Permission / Auth checks should happen on the
         prepare write request).
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param handle: Attribute handle of target attribute (0x01 - 0xFFFF)
@@ -1250,7 +1250,7 @@ class BLEConnectionManager(object):
         write requests with data and the correct offsets to set a large value for a write operation. An execute
         write request will then be issued to carry out the write. (Permission / Auth checks should happen on the
         prepare write request).
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param handle: Attribute handle of target attribute (0x01 - 0xFFFF)
@@ -1277,7 +1277,7 @@ class BLEConnectionManager(object):
         write requests with data and the correct offsets to set a large value for a write operation. An execute
         write request will then be issued to carry out the write. (Permission / Auth checks should happen on the
         prepare write request).
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param flags: Specifies which execute write operation should be performed (0x00 - Cancel all prepared writes, 0x01 - Immediately write all pending prepared values.
@@ -1300,7 +1300,7 @@ class BLEConnectionManager(object):
         write requests with data and the correct offsets to set a large value for a write operation. An execute
         write request will then be issued to carry out the write. (Permission / Auth checks should happen on the
         prepare write request).
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param flags: Specifies which execute write operation should be performed (0x00 - Cancel all prepared writes, 0x01 - Immediately write all pending prepared values.
@@ -1318,7 +1318,7 @@ class BLEConnectionManager(object):
         Send an ATT Read request to the peer device associated with the supplied BLEConnection and attribute
         handle. This is a synchronous call that will wait for either a successful response, error response,
         or the specified timeout (milliseconds) to be reached.
-        
+
         :param connection: BLEConnection with the connected GATT server
         :type connection: BLEConnection
         :param handle: Attribute handle of target attribute (0x01 - 0xFFFF)
@@ -1476,13 +1476,13 @@ class BLEConnectionManager(object):
         Note: Valid ATT packets can be constructed using
         packets defined in scapy.layers.bluetooth
         or using random data for fuzzing.
-        
+
         :param connection: BLEConnection to target device
         :param body: ATT request body
         :rtype: GATTRequest
         """
         request = self.stack_connection.send_raw_att(body, connection.connection_handle)
-        
+
         return request
 
     def l2cap_send_raw(self, connection, body):
@@ -1498,8 +1498,5 @@ class BLEConnectionManager(object):
         :rtype: GATTRequest
         """
         request = self.stack_connection.send_raw_l2cap(body, connection.connection_handle)
-        
+
         return request
-
-
-
